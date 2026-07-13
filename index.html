@@ -128,6 +128,8 @@
   .pharm-co.none{opacity:.5;}
   .pharm-co-name{font-weight:700; margin-bottom:5px; font-size:12.5px;}
   .pharm-co-depot{color:var(--sub); font-size:11.5px; margin-bottom:4px;}
+  .pharm-co-note{font-size:11px; color:var(--accent); margin-top:5px;}
+  .pharm-co-note2{font-size:10.8px; color:var(--sub); margin-top:4px; padding-top:4px; border-top:1px dashed var(--border);}
   .pharm-more{font-size:12px; color:var(--sub); margin-top:10px; text-align:center;}
 
   @media print{
@@ -663,6 +665,68 @@ document.getElementById("mapResetZoom").addEventListener("click", ()=>{
   render();
 });
 
+/* ---------- pharmacy search: narrow a multi-policy row down using the note's dong/myeon list ---------- */
+function extractDong(address){
+  const paren = address.match(/\(([^()]*)\)\s*$/);
+  if(paren){
+    const inner = paren[1].split(",")[0].trim();
+    if(inner) return inner;
+  }
+  // rural addresses often have no parenthetical dong and list the 읍/면 directly, e.g. "...거창군 거창읍 거창대로 52"
+  const tokens = address.trim().split(/\s+/);
+  for(let i=1;i<tokens.length;i++){
+    if(/^[가-힣]+(읍|면|동|리)$/.test(tokens[i])) return tokens[i];
+  }
+  return null;
+}
+
+function parseNoteSegments(note){
+  if(!note) return [];
+  const segs = [];
+  note.split("/").map(s=>s.trim()).filter(Boolean).forEach(part=>{
+    const clean = part.replace(/^\*/,"").trim();
+    let cls = null;
+    if(clean.startsWith("택배")) cls = "p-t";
+    else if(clean.startsWith("1배송") || clean.startsWith("1일1배송") || clean.startsWith("1일 1배송")) cls = "p-1";
+    if(cls){
+      const idx = clean.indexOf(":");
+      if(idx !== -1){
+        const areas = clean.slice(idx+1).split(",").map(s=>s.trim()).filter(Boolean);
+        if(areas.length){ segs.push({cls, areas}); return; }
+      }
+    }
+    // sentence-style note, e.g. "명동지역만 교통체증으로 인해 1일 1배송" (no colon-separated list)
+    const areaMatch = clean.match(/^([가-힣0-9]+)\s*지역만/);
+    if(areaMatch){
+      let endCls = null;
+      if(/택배/.test(clean)) endCls = "p-t";
+      else if(/1일\s?1배송|1배송/.test(clean)) endCls = "p-1";
+      if(endCls) segs.push({cls:endCls, areas:[areaMatch[1]]});
+    }
+  });
+  return segs;
+}
+
+// given a row that has more than one policy (a "복합" region) and a specific pharmacy
+// address, try to narrow it down to just the policy that actually applies to that
+// pharmacy's 동/읍/면 using the note's area list, instead of showing every policy
+// the whole city has anywhere.
+function resolveApplicablePolicies(row, address){
+  if(row.policies.length <= 1) return {policies: row.policies, matchedArea:null, narrowed:false};
+  const dong = extractDong(address);
+  const segs = parseNoteSegments(row.note);
+  if(!dong || segs.length === 0) return {policies: row.policies, matchedArea:null, narrowed:false};
+
+  const hit = segs.find(s => s.areas.some(a => a === dong || a.includes(dong) || dong.includes(a)));
+  if(hit){
+    const pol = row.policies.filter(p=>p.cls===hit.cls);
+    return {policies: pol.length ? pol : row.policies, matchedArea:dong, narrowed: pol.length>0};
+  }
+  const exceptionClasses = new Set(segs.map(s=>s.cls));
+  const defaultPolicies = row.policies.filter(p=>!exceptionClasses.has(p.cls));
+  return {policies: defaultPolicies.length ? defaultPolicies : row.policies, matchedArea:dong, narrowed: defaultPolicies.length>0};
+}
+
 /* ---------- pharmacy search ---------- */
 const pharmInput = document.getElementById("pharmSearch");
 const pharmResultsEl = document.getElementById("pharmResults");
@@ -700,14 +764,20 @@ function renderPharmSearch(){
           <div class="pharm-co-depot">취급 지역 아님</div>
         </div>`;
       }
-      const chips = row.policies.map(pol=>{
+      const resolved = resolveApplicablePolicies(row, p.a);
+      const chips = resolved.policies.map(pol=>{
         const title = `주문 ${pol.order} / 배송 ${pol.deliver} / 토요 ${pol.sat}`.replace(/"/g,"&quot;");
         return `<span class="policy-chip ${pol.cls}" style="margin:1px 3px 1px 0" title="${title}">${pol.label}</span>`;
       }).join("");
+      const narrowNote = resolved.narrowed
+        ? `<div class="pharm-co-note">✓ "${resolved.matchedArea}" 기준으로 판별됨</div>`
+        : (row.policies.length > 1 ? `<div class="pharm-co-note">⚠ 이 지역엔 여러 정책이 섞여 있어요 — 아래 비고 확인</div>` : "");
       return `<div class="pharm-co covered">
         <div class="pharm-co-name">${company}</div>
         <div class="pharm-co-depot">${row.depot}</div>
         <div>${chips}</div>
+        ${narrowNote}
+        ${row.note ? `<div class="pharm-co-note2">${row.note}</div>` : ""}
       </div>`;
     }).join("");
     const addrNote = feature ? "" : ' · <span style="color:var(--amber)">지역 자동매칭 실패</span>';
