@@ -687,13 +687,19 @@ function extractDong(address){
 function parseNoteSegments(note){
   if(!note) return [];
   const segs = [];
-  note.split("/").map(s=>s.trim()).filter(Boolean).forEach(part=>{
+  // segments are usually separated by "/", but some source rows only separate them with
+  // a leading "*" (no slash) - split on either so both forms parse the same way
+  note.split(/\/|(?=\*)/).map(s=>s.trim()).filter(Boolean).forEach(part=>{
     const clean = part.replace(/^\*/,"").trim();
+    const idx = clean.indexOf(":");
+    const label = idx !== -1 ? clean.slice(0,idx) : clean;
+    // classify the same way policyClass() does (check "택배" before generic "1배송"),
+    // so a label like "1일1배송지역(택배)" - which policyClass treats as p-t - doesn't
+    // get misread here as p-1 and silently defeat the exception-area matching below
     let cls = null;
-    if(clean.startsWith("택배")) cls = "p-t";
-    else if(clean.startsWith("1배송") || clean.startsWith("1일1배송") || clean.startsWith("1일 1배송")) cls = "p-1";
+    if(label.includes("택배")) cls = "p-t";
+    else if(label.includes("1배송")) cls = "p-1";
     if(cls){
-      const idx = clean.indexOf(":");
       if(idx !== -1){
         const areas = clean.slice(idx+1).split(",").map(s=>s.trim()).filter(Boolean);
         if(areas.length){ segs.push({cls, areas}); return; }
