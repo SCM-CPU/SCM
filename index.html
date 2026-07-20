@@ -274,6 +274,23 @@ const REGION_PREFIXES = {
   "강원":["32"], "충청":["33","34","25","29"], "경남":["38"], "부산":["21","26"],
   "전북":["35"], "전남":["36"], "대구":["22"], "경북":["37"]
 };
+// 자동판별이 안 되는 특정 약국에 대해 수동으로 확인된 정책을 지정 ("회사|약국명|주소" -> 정책명)
+const MANUAL_OVERRIDES = {
+  "복산나이스|샘약국|경기도 광주시 신현로 100-3, 1층": "1일 2배송",
+  "복산나이스|스타온누리약국|경기도 광주시 신현로 66, 103호": "1일 2배송",
+  "복산나이스|사랑약국|경기도 광주시 양벌로 208, 1층": "1일 2배송",
+  "복산나이스|메디팜단비약국|경기도 광주시 신현로 82": "1일 2배송",
+  "복산나이스|메디팜동명약국|경기도 광주시 오포로 548": "1일 2배송",
+  "복산나이스|건강약국|경기도 광주시 양벌로 197": "1일 2배송",
+  "복산나이스|태평양약국|경기도 광주시 능평로 214": "1일 2배송",
+  "복산나이스|봄약국|경기도 광주시 신현로 72, 101호": "1일 2배송",
+  "복산나이스|능골사랑약국|경기도 광주시 오포로 125": "1일 2배송",
+  "복산나이스|오포온누리약국|경기도 광주시 능평로 203, 1층": "1일 2배송",
+  "복산나이스|엄마맘약국|경기도 광주시 능평로 63, 1층 B01호": "1일 2배송",
+  "복산나이스|수약국|경기도 광주시 양벌로 327, 1층 103호": "1일 2배송",
+  "복산나이스|신현약국|경기도 광주시 새말길 75, 1층": "1일 2배송",
+  "복산나이스|오포태평양약국|경기도 광주시 오포로 868": "1일 2배송"
+};
 // districts renamed/newly split off since the 2018 map data; mapped to their closest old-boundary equivalent
 const NAME_ALIASES = {
   "미추홀구":"남구",
@@ -815,6 +832,15 @@ function renderPharmSearch(){
       let narrowNote = resolved.narrowed
         ? `<div class="pharm-co-note">✓ "${resolved.matchedArea}" 기준으로 판별됨</div>`
         : (row.policies.length > 1 ? `<div class="pharm-co-note">⚠ 이 지역엔 여러 정책이 섞여 있어요 — 아래 비고 확인</div>` : "");
+
+      const overrideKey = company + "|" + p.n + "|" + p.a;
+      if(MANUAL_OVERRIDES[overrideKey]){
+        const overridePol = row.policies.filter(pol=>pol.label===MANUAL_OVERRIDES[overrideKey]);
+        if(overridePol.length){
+          resolved = {policies: overridePol, matchedArea:null, narrowed:true};
+          narrowNote = `<div class="pharm-co-note">✓ 수동 확인 완료</div>`;
+        }
+      }
       if(company === "아이팜코리아"){
         const exactType = resolveIpharmExact(p.n, p.a);
         if(exactType){
