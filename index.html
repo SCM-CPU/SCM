@@ -154,7 +154,7 @@
 
   <div class="panel pharm-panel">
     <h2>💊 약국명으로 배송형태 검색</h2>
-    <input type="text" id="pharmSearch" class="pharm-input" placeholder="약국 이름을 입력하세요 (예: 종로약국) · 폐업 약국은 제외되어 있습니다">
+    <input type="text" id="pharmSearch" class="pharm-input" placeholder="약국 이름과 지역을 입력하세요 (예: 종로약국 강남) · 폐업 약국은 제외되어 있습니다">
     <div id="pharmHint" class="pharm-hint"></div>
     <div id="pharmResults"></div>
   </div>
@@ -812,12 +812,13 @@ function renderPharmSearch(){
   if(q.length < 2){
     pharmResultsEl.innerHTML = "";
     pharmHintEl.textContent = q.length === 0
-      ? `전국 약국 ${PHARMACIES.length.toLocaleString()}곳 중에서 검색합니다 (폐업 약국 제외)`
+      ? `전국 약국 ${PHARMACIES.length.toLocaleString()}곳 중에서 검색합니다 (폐업 약국 제외) · 이름+지역을 띄어써서 함께 검색할 수 있어요`
       : "2글자 이상 입력해 주세요";
     return;
   }
 
-  const matches = PHARMACIES.filter(p => p.n.includes(q));
+  const tokens = q.split(/\s+/).filter(Boolean);
+  const matches = PHARMACIES.filter(p => tokens.every(t => p.n.includes(t) || p.a.includes(t)));
   if(matches.length === 0){
     pharmHintEl.textContent = "검색 결과가 없습니다";
     pharmResultsEl.innerHTML = "";
