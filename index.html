@@ -133,6 +133,7 @@
   .pharm-co-note{font-size:11px; color:var(--accent); margin-top:5px;}
   .pharm-co-note2{font-size:10.8px; color:var(--sub); margin-top:4px; padding-top:4px; border-top:1px dashed var(--border);}
   .pharm-co-time{font-size:10.5px; color:var(--sub); margin:1px 0 2px 1px;}
+  .pharm-co-jonghap{font-size:11px; color:var(--accent); font-weight:700; margin:2px 0 4px;}
   .pharm-more{font-size:12px; color:var(--sub); margin-top:10px; text-align:center;}
 
   @media print{
@@ -279,6 +280,20 @@ const REGION_PREFIXES = {
   "서울":["11"], "경기남부":["31"], "경기북부":["31"], "제주":["39"], "인천":["23"],
   "강원":["32"], "충청":["33","34","25","29"], "경남":["38"], "부산":["21","26"],
   "전북":["35"], "전남":["36"], "대구":["22"], "경북":["37"]
+};
+// 이지메디컴은 거점도매만 담당하고 종합도매는 지역별로 다른 회사임 (수도권1→인천약품, 수도권2→백제약품)
+// 인천 일부 지역(계양구·부평구·남동구·연수구·미추홀구·동구)은 아직 미확인이라 매핑에서 제외
+const JONGHAP_WHOLESALE = {
+  "서울동대문구":"인천약품", "서울성동구":"인천약품",
+  "남양주시":"인천약품", "구리시":"인천약품", "의정부시":"인천약품", "가평군":"인천약품",
+  "양평군":"인천약품", "여주시":"인천약품", "이천시":"인천약품", "부천시":"인천약품",
+  "서구":"인천약품", "강화군":"인천약품", "옹진군":"인천약품", "중구":"인천약품",
+  "서울서대문구":"백제약품", "서울마포구":"백제약품", "서울강서구":"백제약품", "서울양천구":"백제약품", "서울구로구":"백제약품",
+  "서울영등포구":"백제약품", "서울금천구":"백제약품", "서울관악구":"백제약품", "서울동작구":"백제약품", "서울용산구":"백제약품",
+  "김포시":"백제약품", "고양시":"백제약품", "양주시":"백제약품", "동두천시":"백제약품", "연천군":"백제약품",
+  "포천시":"백제약품", "광명시":"백제약품", "시흥시":"백제약품", "안양시":"백제약품", "과천시":"백제약품",
+  "의왕시":"백제약품", "군포시":"백제약품", "안산시":"백제약품", "화성시":"백제약품", "수원시":"백제약품",
+  "오산시":"백제약품", "제주시":"백제약품", "서귀포시":"백제약품"
 };
 // 자동판별이 안 되는 특정 약국에 대해 수동으로 확인된 정책을 지정 ("회사|약국명|주소" -> 정책명)
 const MANUAL_OVERRIDES = {
@@ -876,9 +891,12 @@ function renderPharmSearch(){
           <div class="pharm-co-time">주문 ${pol.order} → 배송 ${pol.deliver}</div>
         </div>`;
       }).join("");
+      const jonghap = company === "이지메디컴" ? JONGHAP_WHOLESALE[row.short] : null;
+      const jonghapTag = jonghap ? `<div class="pharm-co-jonghap">🏢 종합도매: ${jonghap}</div>` : "";
       return `<div class="pharm-co covered">
         <div class="pharm-co-name">${company}</div>
         <div class="pharm-co-depot">${row.depot}</div>
+        ${jonghapTag}
         <div>${chips}</div>
         ${narrowNote}
         ${row.note ? `<div class="pharm-co-note2">${row.note}</div>` : ""}
