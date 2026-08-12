@@ -776,20 +776,43 @@ function parseNoteSegments(note){
 // address, try to narrow it down to just the policy that actually applies to that
 // pharmacy's 동/읍/면 using the note's area list, instead of showing every policy
 // the whole city has anywhere.
+// 비고가 동/읍/면이 아니라 구 단위 전체를 예외로 적어둔 경우(예: 화성시 "만세구, 효행구")를 위해,
+// 동/읍/면 단위 매칭이 실패하면 구 단위도 후보로 확인한다 (예: "화성시 만세구 팔탄면" → "팔탄면" 실패 시 "만세구"로 재시도)
+function extractGu(address){
+  const tokens = address.trim().split(/\s+/);
+  for(let i=1;i<tokens.length;i++){
+    if(/^[가-힣]+구$/.test(tokens[i])) return tokens[i];
+  }
+  return null;
+}
+
 function resolveApplicablePolicies(row, address){
   if(row.policies.length <= 1) return {policies: row.policies, matchedArea:null, narrowed:false};
   const dong = extractDong(address);
+  const gu = extractGu(address);
   const segs = parseNoteSegments(row.note);
-  if(!dong || segs.length === 0) return {policies: row.policies, matchedArea:null, narrowed:false};
+  if((!dong && !gu) || segs.length === 0) return {policies: row.policies, matchedArea:null, narrowed:false};
 
-  const hit = segs.find(s => s.areas.some(a => a === dong || a.includes(dong) || dong.includes(a)));
+  let hit = null, matchedArea = null;
+  if(dong){
+    hit = segs.find(s => s.areas.some(a => a === dong || a.includes(dong) || dong.includes(a)));
+    if(hit) matchedArea = dong;
+  }
+  // gu-level candidate requires an exact match - a note fragment like "동탄구 일부(장지동"
+  // (a comma inside the parens got split by parseNoteSegments) contains "동탄구" as a substring
+  // too, but only applies to those specific dong, not the whole gu, so loose matching here
+  // would wrongly apply it dashboard-wide across all of 동탄구
+  if(!hit && gu){
+    hit = segs.find(s => s.areas.some(a => a === gu));
+    if(hit) matchedArea = gu;
+  }
   if(hit){
     const pol = row.policies.filter(p=>p.cls===hit.cls);
-    return {policies: pol.length ? pol : row.policies, matchedArea:dong, narrowed: pol.length>0};
+    return {policies: pol.length ? pol : row.policies, matchedArea, narrowed: pol.length>0};
   }
   const exceptionClasses = new Set(segs.map(s=>s.cls));
   const defaultPolicies = row.policies.filter(p=>!exceptionClasses.has(p.cls));
-  return {policies: defaultPolicies.length ? defaultPolicies : row.policies, matchedArea:dong, narrowed: defaultPolicies.length>0};
+  return {policies: defaultPolicies.length ? defaultPolicies : row.policies, matchedArea: dong||gu, narrowed: defaultPolicies.length>0};
 }
 
 // 아이팜코리아는 지역요약이 아니라 약국별 배정 원본 목록을 그대로 갖고 있으므로,
