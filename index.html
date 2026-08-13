@@ -315,7 +315,15 @@ const MANUAL_OVERRIDES = {
   "유진약품|시종약국|전남광주통합특별시 영암군 시종면 내동중앙로 21": "1일 1배송",
   "유진약품|인화약국|전남광주통합특별시 영암군 시종면 쌍구길 15-1": "1일 1배송",
   "유진약품|독일약국|전남광주통합특별시 영암군 학산면 독천로 187": "1일 1배송",
-  "유진약품|코아약국|전남광주통합특별시 영암군 시종면 마한로 1270": "1일 1배송"
+  "유진약품|코아약국|전남광주통합특별시 영암군 시종면 마한로 1270": "1일 1배송",
+  "백제약품|시은약국|경상남도 산청군 시천면 남명로 200": "1일 1배송",
+  "백제약품|튼튼약국|경상남도 고성군 거류면 거류로 642": "택배"
+};
+// 개별 약국 단위가 아니라 시군구 전체를 수동으로 확정한 경우 ("회사|시군구" -> 정책명)
+// 예: 서울중랑구는 비고가 "동부시장안/망우리고개 인근" 같은 특정 지형지물 기준이라 주소만으로는
+// 대상 약국을 특정할 수 없어, 확인 전까지 구 전체를 기본 정책(1일 2배송)으로 확정
+const REGION_OVERRIDES = {
+  "백제약품|서울중랑구": "1일 2배송"
 };
 // districts renamed/newly split off since the 2018 map data; mapped to their closest old-boundary equivalent
 const NAME_ALIASES = {
@@ -903,6 +911,15 @@ function renderPharmSearch(){
       let narrowNote = resolved.narrowed
         ? `<div class="pharm-co-note">✓ "${resolved.matchedArea}" 기준으로 판별됨</div>`
         : (row.policies.length > 1 ? `<div class="pharm-co-note">⚠ 이 지역엔 여러 정책이 섞여 있어요 — 아래 비고 확인</div>` : "");
+
+      const regionOverrideKey = company + "|" + row.short;
+      if(REGION_OVERRIDES[regionOverrideKey]){
+        const regionPol = row.policies.filter(pol=>pol.label===REGION_OVERRIDES[regionOverrideKey]);
+        if(regionPol.length){
+          resolved = {policies: regionPol, matchedArea:null, narrowed:true};
+          narrowNote = `<div class="pharm-co-note">✓ 수동 확인 완료(지역 전체)</div>`;
+        }
+      }
 
       const overrideKey = company + "|" + p.n + "|" + p.a;
       if(MANUAL_OVERRIDES[overrideKey]){
