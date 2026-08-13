@@ -739,6 +739,14 @@ function extractDong(address){
   return null;
 }
 
+// classify the same way policyClass() does (check "택배" before generic "1배송"), so a label
+// like "1일1배송지역(택배)" - which policyClass treats as p-t - doesn't get misread as p-1
+function noteClass(label){
+  if(label.includes("택배")) return "p-t";
+  if(label.includes("1배송")) return "p-1";
+  return null;
+}
+
 function parseNoteSegments(note){
   if(!note) return [];
   const segs = [];
@@ -747,25 +755,22 @@ function parseNoteSegments(note){
   note.split(/\/|(?=\*)/).map(s=>s.trim()).filter(Boolean).forEach(part=>{
     const clean = part.replace(/^\*/,"").trim();
     const idx = clean.indexOf(":");
-    const label = idx !== -1 ? clean.slice(0,idx) : clean;
-    // classify the same way policyClass() does (check "택배" before generic "1배송"),
-    // so a label like "1일1배송지역(택배)" - which policyClass treats as p-t - doesn't
-    // get misread here as p-1 and silently defeat the exception-area matching below
-    let cls = null;
-    if(label.includes("택배")) cls = "p-t";
-    else if(label.includes("1배송")) cls = "p-1";
-    if(cls){
-      if(idx !== -1){
-        const areas = clean.slice(idx+1).split(",").map(s=>s.trim()).filter(Boolean);
+    if(idx !== -1){
+      const left = clean.slice(0,idx).trim();
+      const right = clean.slice(idx+1).trim();
+      const cls = noteClass(left);
+      if(cls){
+        const areas = right.split(",").map(s=>s.trim()).filter(Boolean);
         if(areas.length){ segs.push({cls, areas}); return; }
       }
+      // some rows reverse the usual "정책 : 지역목록" order into "지역명 : 정책" (e.g. "상지석동 : 택배")
+      const rcls = noteClass(right);
+      if(rcls && left){ segs.push({cls:rcls, areas:[left]}); return; }
     }
     // sentence-style note, e.g. "명동지역만 교통체증으로 인해 1일 1배송" (no colon-separated list)
     const areaMatch = clean.match(/^([가-힣0-9]+)\s*지역만/);
     if(areaMatch){
-      let endCls = null;
-      if(/택배/.test(clean)) endCls = "p-t";
-      else if(/1일\s?1배송|1배송/.test(clean)) endCls = "p-1";
+      const endCls = noteClass(clean);
       if(endCls) segs.push({cls:endCls, areas:[areaMatch[1]]});
     }
   });
@@ -786,17 +791,33 @@ function extractGu(address){
   return null;
 }
 
+// rural addresses can carry both a 읍/면 AND a nested 리 (e.g. "양산시 하북면 신전리 ...") - the
+// address lists them coarse-to-fine, so if a note has a finer 리-level exception nested inside a
+// coarser 읍/면 exception (e.g. 면 전체는 택배지만 그 안의 특정 리만 1배송), the finer one must be
+// tried first or the coarser 읍/면 token match would always win and hide it
+function extractAreaTokens(address){
+  const tokens = address.trim().split(/\s+/);
+  const found = [];
+  for(let i=1;i<tokens.length;i++){
+    if(/^[가-힣]+(읍|면|동|리)$/.test(tokens[i])) found.push(tokens[i]);
+  }
+  return found.reverse();
+}
+
 function resolveApplicablePolicies(row, address){
   if(row.policies.length <= 1) return {policies: row.policies, matchedArea:null, narrowed:false};
-  const dong = extractDong(address);
+  const addr = address.trim();
+  // parenthetical/landmark dong (e.g. "(신전동)") is already the most specific unit given - only
+  // rural addresses without one need the multi-token finest-first candidate list
+  const candidates = addr.endsWith(")") ? [extractDong(address)].filter(Boolean) : extractAreaTokens(address);
   const gu = extractGu(address);
   const segs = parseNoteSegments(row.note);
-  if((!dong && !gu) || segs.length === 0) return {policies: row.policies, matchedArea:null, narrowed:false};
+  if((candidates.length === 0 && !gu) || segs.length === 0) return {policies: row.policies, matchedArea:null, narrowed:false};
 
   let hit = null, matchedArea = null;
-  if(dong){
-    hit = segs.find(s => s.areas.some(a => a === dong || a.includes(dong) || dong.includes(a)));
-    if(hit) matchedArea = dong;
+  for(const cand of candidates){
+    hit = segs.find(s => s.areas.some(a => a === cand || a.includes(cand) || cand.includes(a)));
+    if(hit){ matchedArea = cand; break; }
   }
   // gu-level candidate requires an exact match - a note fragment like "동탄구 일부(장지동"
   // (a comma inside the parens got split by parseNoteSegments) contains "동탄구" as a substring
@@ -812,7 +833,7 @@ function resolveApplicablePolicies(row, address){
   }
   const exceptionClasses = new Set(segs.map(s=>s.cls));
   const defaultPolicies = row.policies.filter(p=>!exceptionClasses.has(p.cls));
-  return {policies: defaultPolicies.length ? defaultPolicies : row.policies, matchedArea: dong||gu, narrowed: defaultPolicies.length>0};
+  return {policies: defaultPolicies.length ? defaultPolicies : row.policies, matchedArea: candidates[0]||gu||null, narrowed: defaultPolicies.length>0};
 }
 
 // 아이팜코리아는 지역요약이 아니라 약국별 배정 원본 목록을 그대로 갖고 있으므로,
