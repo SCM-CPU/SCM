@@ -233,6 +233,13 @@ function policyClass(label){
 }
 function prettyLabel(l){ return l.replace(/^1일(\d)배송/, "1일 $1배송"); }
 
+// some source rows mistakenly mark two columns with the identical label (e.g. 고성군 has two
+// "택배" columns with different cutoff times) - when that happens, keep only the confirmed
+// correct one instead of showing both ("회사|시군구|라벨" -> 확인된 주문마감 시간 문자열)
+const DUPLICATE_POLICY_FIX = {
+  "백제약품|고성군|택배": "①오늘 10시 전"
+};
+
 const COMPANY_NAMES = Object.keys(RAW);
 const COMPANIES = {};
 COMPANY_NAMES.forEach(name=>{
@@ -241,10 +248,18 @@ COMPANY_NAMES.forEach(name=>{
   sheetGroups.forEach(g=>{
     g.rows.forEach(r=>{
       if(!r.short) return;
-      const policies = g.blocks
+      let policies = g.blocks
         .map((b,i)=>({b,i}))
         .filter(x=>r.marks[x.i])
         .map(x=>({label:prettyLabel(x.b.label), cls:policyClass(x.b.label), order:x.b.order, deliver:x.b.deliver, sat:x.b.sat}));
+      const byLabel = {};
+      policies.forEach(p => (byLabel[p.label] = byLabel[p.label] || []).push(p));
+      policies = Object.keys(byLabel).map(label => {
+        const group = byLabel[label];
+        if(group.length <= 1) return group[0];
+        const fixOrder = DUPLICATE_POLICY_FIX[name+"|"+r.short+"|"+label];
+        return group.find(p=>p.order===fixOrder) || group[0];
+      });
       rows.push({region:r.region, short:r.short, depot:r.depot, note:r.note, policies});
     });
   });
