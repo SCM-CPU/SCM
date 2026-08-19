@@ -285,6 +285,38 @@ if(COMPANIES["아이팜코리아"] && !COMPANIES["아이팜코리아"].rows.some
   COMPANIES["아이팜코리아"].rows.push({region:"경북", short:"구미시", depot:"아이팜코리아", note:"",
     policies:[{label:"1일 2배송", cls:"p-2", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]});
 }
+// 아래 21개 경북 시군구도 마찬가지로 배정 목록(260716)엔 한 번도 등장하지 않아 지역 행이 없었다.
+// 대웅그룹사 거점 도매 배송 현황(260410, 동원아이팜 시트)의 지역별 기본 정책·읍면동 예외를 기준으로 채운다.
+// (이 시트는 구·군 요약표라 260716 배정목록처럼 항상 1일2배송이 기본은 아니고,
+//  지역에 따라 1일1배송이 기본인 곳도 있다 - 아래 각 행의 policies가 그 지역의 실제 기본값이다)
+const IPHARM_NEW_REGIONS = [
+  {region:"경북", short:"경주시", depot:"아이팜코리아", note:"", policies:[{label:"1일 2배송", cls:"p-2", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}, {label:"택배", cls:"p-t", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"포항시", depot:"아이팜코리아", note:"", policies:[{label:"1일 2배송", cls:"p-2", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}, {label:"택배", cls:"p-t", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"군위군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"김천시", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"문경시", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}, {label:"택배", cls:"p-t", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"상주시", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}, {label:"택배", cls:"p-t", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"안동시", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}, {label:"택배", cls:"p-t", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"영천시", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}, {label:"택배", cls:"p-t", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"영주시", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}, {label:"택배", cls:"p-t", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"고령군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}, {label:"택배", cls:"p-t", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"봉화군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}, {label:"택배", cls:"p-t", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"울진군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"의성군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"성주군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}, {label:"택배", cls:"p-t", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"영덕군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"영양군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"예천군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"울릉군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"칠곡군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"청송군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]},
+  {region:"경북", short:"청도군", depot:"아이팜코리아", note:"", policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]}
+];
+if(COMPANIES["아이팜코리아"]){
+  IPHARM_NEW_REGIONS.forEach(row=>{
+    if(!COMPANIES["아이팜코리아"].rows.some(r=>r.short===row.short)) COMPANIES["아이팜코리아"].rows.push(row);
+  });
+}
 
 /* ---------- depot color hashing ---------- */
 const depotColorCache = {};
@@ -1267,8 +1299,32 @@ IPHARM_ASSIGN.forEach(e=>{
 });
 
 // 원본 배정 목록(택배 시트)에 약국명 없이 "전지역"으로만 표기된 동읍 - 그 동읍의 모든 약국에 적용
+// (사수동은 260716 배정목록 출처, 나머지는 대웅그룹사 파일의 동원아이팜 시트 읍면동 예외 - 새로 채운 21개 지역용)
 const IPHARM_DONG_EXCEPTIONS = {
-  "사수동": "택배"
+  "사수동": "택배",
+  "감포읍": "택배",
+  "남산동": "택배",
+  "양남면": "택배",
+  "외동읍": "택배",
+  "천북면": "택배",
+  "기계면": "택배",
+  "송라면": "택배",
+  "홍해읍": "택배",
+  "구룡포읍": "택배",
+  "이동": "택배",
+  "지곡동": "택배",
+  "청림동": "택배",
+  "가은읍": "택배",
+  "상초리": "택배",
+  "낙동면": "택배",
+  "신안동": "택배",
+  "임하면": "택배",
+  "신녕면": "택배",
+  "상망동": "택배",
+  "다산면": "택배",
+  "상운면": "택배",
+  "춘양면": "택배",
+  "가천면": "택배"
 };
 
 function resolveIpharmExact(pharmacyName, address){
@@ -1355,11 +1411,13 @@ function renderPharmSearch(){
             narrowNote = `<div class="pharm-co-note">✓ 아이팜코리아 배정 목록 기준 (정확)</div>`;
           }
         } else {
-          // 1일1배송/택배 예외 목록에 없는 약국은 기본값인 1일 2배송 (아이팜코리아 확인)
-          const def = row.policies.filter(pol=>pol.label==="1일 2배송");
+          // 예외 목록에 없는 약국은 그 지역의 기본 정책을 적용한다. 배정목록(260716)이 있는
+          // 기존 지역은 항상 policies[0]이 "1일 2배송"이고, 대웅그룹사 파일로 새로 채운 지역은
+          // policies[0]이 그 지역의 실제 기본값(1일1배송인 경우도 있음)이다.
+          const def = row.policies.slice(0,1);
           if(def.length){
             resolved = {policies: def, matchedArea:null, narrowed:true};
-            narrowNote = `<div class="pharm-co-note">✓ 예외 목록에 없어 기본 정책(1일 2배송) 적용</div>`;
+            narrowNote = `<div class="pharm-co-note">✓ 예외 목록에 없어 기본 정책(${def[0].label}) 적용</div>`;
           }
         }
       }
