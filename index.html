@@ -1266,8 +1266,14 @@ IPHARM_ASSIGN.forEach(e=>{
   (IPHARM_BY_NAME_SGG[ks] = IPHARM_BY_NAME_SGG[ks] || []).push(e);
 });
 
+// 원본 배정 목록(택배 시트)에 약국명 없이 "전지역"으로만 표기된 동읍 - 그 동읍의 모든 약국에 적용
+const IPHARM_DONG_EXCEPTIONS = {
+  "사수동": "택배"
+};
+
 function resolveIpharmExact(pharmacyName, address){
   const dong = extractDong(address);
+  if(dong && IPHARM_DONG_EXCEPTIONS[dong]) return IPHARM_DONG_EXCEPTIONS[dong];
   if(dong){
     const hit = IPHARM_BY_NAME_DONG[pharmacyName + "|" + dong];
     if(hit && hit.length === 1) return hit[0].t;
