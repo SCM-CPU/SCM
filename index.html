@@ -1465,10 +1465,11 @@ function renderPharmSearch(){
     const addrNote = feature ? "" : ' · <span style="color:var(--amber)">지역 자동매칭 실패</span>';
     const zipTag = p.z ? `<span style="color:var(--sub)">[${p.z}]</span> ` : "";
     const zoneTypeName = p.zt ? ZONE_TYPE_NAMES[p.zt] : null;
-    const zoneTitle = (zoneTypeName || p.zn || "특수지역으로 확인된 곳입니다").replace(/"/g, "&quot;");
+    const zoneFallback = "수동으로 특수지역 확정됨 (구체적 사유 미기록)";
+    const zoneReasonText = [zoneTypeName, p.zn].filter(Boolean).join(" · ") || zoneFallback;
+    const zoneTitle = zoneReasonText.replace(/"/g, "&quot;");
     const zoneBadge = p.sz ? `<span class="zone-badge" title="${zoneTitle}">⚠ 특수지역</span>` : "";
-    const zoneReasonText = [zoneTypeName, p.zn].filter(Boolean).join(" · ");
-    const zoneReason = p.sz && zoneReasonText ? `<div class="zone-reason">${zoneReasonText}</div>` : "";
+    const zoneReason = p.sz ? `<div class="zone-reason">${zoneReasonText}</div>` : "";
     return `<div class="pharm-card">
       <div class="pharm-name">${p.n}${zoneBadge}</div>
       <div class="pharm-addr">${zipTag}${p.a}${addrNote}</div>
