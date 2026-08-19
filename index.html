@@ -318,6 +318,13 @@ if(COMPANIES["아이팜코리아"]){
   });
 }
 
+// 충남 예산군은 백제약품 원본 자료(260703/260721/대웅그룹사 파일 전부) 어디에도 등장하지 않아
+// 지역 행이 없었다. 가장 인접한 생활권인 홍성군(백제약품 대전센터, 1일 1배송)과 동일하게 반영한다.
+if(COMPANIES["백제약품"] && !COMPANIES["백제약품"].rows.some(r=>r.short==="예산군")){
+  COMPANIES["백제약품"].rows.push({region:"충청", short:"예산군", depot:"백제약품 대전센터", note:"인접 지역(홍성군)과 동일하게 반영",
+    policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]});
+}
+
 /* ---------- depot color hashing ---------- */
 const depotColorCache = {};
 function depotColor(name){
