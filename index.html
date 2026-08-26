@@ -110,11 +110,12 @@
   .map-reset-btn{border:1px solid var(--border); background:var(--bg); color:var(--sub); padding:5px 12px; border-radius:20px; font-size:12.3px; cursor:pointer;}
   .map-reset-btn:hover{background:var(--hover); color:var(--text);}
   .map-wrap{position:relative; width:100%;}
-  #mapSvg{width:100%; height:auto; max-height:78vh; display:block; background:var(--bg); border-radius:10px; transition:all .25s ease;}
-  #mapSvg path{stroke:var(--panel); stroke-width:1; vector-effect:non-scaling-stroke; cursor:pointer; transition:opacity .1s;}
-  #mapSvg path:hover{opacity:0.75; stroke:var(--text); stroke-width:2;}
-  #mapSvg path.no-data{cursor:default;}
-  #mapSvg path.no-data:hover{opacity:1; stroke:var(--panel); stroke-width:1;}
+  .region-map-svg{width:100%; height:auto; max-height:78vh; display:block; background:var(--bg); border-radius:10px; transition:all .25s ease;}
+  .region-map-svg path{stroke:var(--panel); stroke-width:1; vector-effect:non-scaling-stroke; cursor:pointer; transition:opacity .1s;}
+  .region-map-svg path:hover{opacity:0.75; stroke:var(--text); stroke-width:2;}
+  .region-map-svg path.no-data{cursor:default;}
+  .region-map-svg path.no-data:hover{opacity:1; stroke:var(--panel); stroke-width:1;}
+  .map-section-title{font-size:13.2px; font-weight:700; color:var(--text); margin-bottom:10px;}
   .map-tooltip{position:absolute; pointer-events:none; background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:10px 12px; box-shadow:var(--shadow); font-size:12.5px; max-width:280px; display:none; z-index:10;}
   .map-tooltip .tt-title{font-weight:700; font-size:13.5px; margin-bottom:5px;}
   .map-tooltip .tt-depot{color:var(--sub); font-size:11.8px; margin-bottom:6px;}
@@ -202,8 +203,17 @@
         <button id="mapResetZoom" class="map-reset-btn">🔎 전체 지도로 보기</button>
       </div>
       <div class="map-wrap">
-        <svg id="mapSvg" viewBox="0 0 900 842" preserveAspectRatio="xMidYMid meet"></svg>
+        <svg id="mapSvg" class="region-map-svg" viewBox="0 0 900 842" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="map-tooltip" id="mapTooltip"></div>
+      </div>
+    </div>
+
+    <div class="panel map-panel" style="margin-top:14px">
+      <div class="map-section-title">🗺 전 거점 권역 한눈에 보기</div>
+      <div class="map-legend" id="mapLegendNational"></div>
+      <div class="map-wrap">
+        <svg id="mapSvgNational" class="region-map-svg" viewBox="0 0 900 842" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="map-tooltip" id="mapTooltipNational"></div>
       </div>
     </div>
   </div>
@@ -1022,6 +1032,61 @@ function renderMap(rows){
   focusMapView(rows);
 }
 
+/* ---------- map: national overview (all companies/depots at once, static) ---------- */
+const natMapSvgEl = document.getElementById("mapSvgNational");
+const natMapTooltipEl = document.getElementById("mapTooltipNational");
+let nationalMapBuilt = false;
+
+function buildNationalMap(){
+  if(nationalMapBuilt) return;
+  nationalMapBuilt = true;
+
+  const allRows = COMPANY_NAMES.flatMap(name=>COMPANIES[name].rows);
+  const codeToRow = {};
+  allRows.forEach(row=>{
+    resolveFeatures(row).forEach(f=>{ if(!codeToRow[f.code]) codeToRow[f.code] = row; });
+  });
+
+  const ns = "http://www.w3.org/2000/svg";
+  MAP_DATA.forEach(f=>{
+    const p = document.createElementNS(ns, "path");
+    p.setAttribute("d", f.d);
+    const row = codeToRow[f.code];
+    if(row){
+      p.setAttribute("fill", depotColor(row.depot).fg);
+      p.__row = row;
+    } else {
+      p.setAttribute("fill", "#e4e8f2");
+      p.classList.add("no-data");
+    }
+    natMapSvgEl.appendChild(p);
+  });
+
+  natMapSvgEl.addEventListener("mousemove", (e)=>{
+    const target = e.target;
+    if(target.tagName !== "path" || !target.__row){
+      natMapTooltipEl.style.display = "none";
+      return;
+    }
+    const row = target.__row;
+    const wrapRect = natMapSvgEl.parentElement.getBoundingClientRect();
+    natMapTooltipEl.innerHTML = `<div class="tt-title">${row.short}</div><div class="tt-depot">${row.depot}</div>`;
+    natMapTooltipEl.style.display = "block";
+    let left = e.clientX - wrapRect.left + 14;
+    let top = e.clientY - wrapRect.top + 14;
+    if(left + 290 > wrapRect.width) left = e.clientX - wrapRect.left - 294;
+    natMapTooltipEl.style.left = left + "px";
+    natMapTooltipEl.style.top = top + "px";
+  });
+  natMapSvgEl.addEventListener("mouseleave", ()=>{ natMapTooltipEl.style.display = "none"; });
+
+  const depots = [...new Set(allRows.map(r=>r.depot))].sort();
+  document.getElementById("mapLegendNational").innerHTML = depots.map(d=>{
+    const c = depotColor(d);
+    return `<div class="lg-item"><span class="lg-swatch" style="background:${c.fg}"></span>${d}</div>`;
+  }).join("") + `<div class="lg-item"><span class="lg-swatch" style="background:#e4e8f2"></span>비취급 지역</div>`;
+}
+
 /* ---------- state ---------- */
 let activeCompany = COMPANY_NAMES[0];
 
@@ -1092,6 +1157,7 @@ function setupCompany(){
 
   render(regionOrder);
   renderMap(rows);
+  buildNationalMap();
 }
 
 function render(regionOrder){
