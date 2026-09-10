@@ -141,6 +141,7 @@
   .claim-list{display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;}
   .claim-item{border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:12.3px;}
   .claim-meta{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:4px; color:var(--sub); font-size:11.5px;}
+  .claim-pharm{font-weight:700; color:var(--text); font-size:12.5px;}
   .claim-type{background:var(--accent-bg); color:var(--accent); padding:1px 7px; border-radius:20px; font-weight:600;}
   .claim-content{margin-bottom:4px;}
   .claim-action{color:var(--sub); font-size:11.8px; margin-bottom:4px;}
@@ -171,6 +172,11 @@
     </div>
     <button id="refreshBtn" onclick="location.reload()">🔄 새로고침</button>
   </header>
+
+  <div class="panel">
+    <h2>🗓 어제의 클레임</h2>
+    <div id="yesterdayClaims" class="claim-loading">클레임 이력 확인 중…</div>
+  </div>
 
   <div class="panel pharm-panel">
     <h2>💊 약국명으로 배송형태 검색</h2>
@@ -1968,7 +1974,7 @@ async function loadClaims(){
         const ci = {
           date: cols.indexOf("접수일시"), name: cols.indexOf("약국명"), addr: cols.indexOf("신약국주소"),
           type: cols.indexOf("문의유형"), subtype: cols.indexOf("유형소분류"), content: cols.indexOf("컴플레인 내용"),
-          action: cols.indexOf("조치사항"), status: cols.indexOf("답변후 처리완료 현황"),
+          action: cols.indexOf("조치사항"), status: cols.indexOf("답변후 처리완료 현황"), time: cols.indexOf("내부전송시각"),
         };
         (json.table.rows || []).forEach(r=>{
           const c = r.c || [];
@@ -1976,8 +1982,8 @@ async function loadClaims(){
           const name = get(ci.name);
           if(!name) return;
           all.push({
-            key: normPharmName(name),
-            date: get(ci.date), addr: get(ci.addr), type: get(ci.type), subtype: get(ci.subtype),
+            key: normPharmName(name), name,
+            date: get(ci.date), time: get(ci.time), addr: get(ci.addr), type: get(ci.type), subtype: get(ci.subtype),
             content: get(ci.content), action: get(ci.action), status: get(ci.status), source: sheetName,
           });
         });
@@ -1990,6 +1996,17 @@ async function loadClaims(){
   return CLAIMS_PROMISE;
 }
 
+function claimItemHtml(cl, showPharm){
+  const done = /완료/.test(cl.status);
+  const typeLabel = [cl.type, cl.subtype].filter(Boolean).join(" · ");
+  return `<div class="claim-item">
+    <div class="claim-meta">${showPharm ? `<span class="claim-pharm">${escHtml(cl.name)}</span>` : ""}<span>${escHtml(cl.date)}</span>${typeLabel ? `<span class="claim-type">${escHtml(typeLabel)}</span>` : ""}<span>${escHtml(cl.source)}</span></div>
+    <div class="claim-content">${escHtml(cl.content)}</div>
+    ${cl.action ? `<div class="claim-action">조치: ${escHtml(cl.action)}</div>` : ""}
+    <span class="claim-status ${done ? "done" : "pending"}">${escHtml(cl.status) || "처리현황 미기재"}</span>
+  </div>`;
+}
+
 function renderClaimBox(box, p){
   const key = normPharmName(p.n);
   const claims = (CLAIMS_DATA || []).filter(cl => cl.key === key && sameRegion(p.a, cl.addr));
@@ -1997,17 +2014,32 @@ function renderClaimBox(box, p){
     box.innerHTML = `<div class="claim-empty">클레임 이력 없음</div>`;
     return;
   }
-  const items = claims.map(cl => {
-    const done = /완료/.test(cl.status);
-    const typeLabel = [cl.type, cl.subtype].filter(Boolean).join(" · ");
-    return `<div class="claim-item">
-      <div class="claim-meta"><span>${escHtml(cl.date)}</span>${typeLabel ? `<span class="claim-type">${escHtml(typeLabel)}</span>` : ""}<span>${escHtml(cl.source)}</span></div>
-      <div class="claim-content">${escHtml(cl.content)}</div>
-      ${cl.action ? `<div class="claim-action">조치: ${escHtml(cl.action)}</div>` : ""}
-      <span class="claim-status ${done ? "done" : "pending"}">${escHtml(cl.status) || "처리현황 미기재"}</span>
-    </div>`;
-  }).join("");
+  const items = claims.map(cl => claimItemHtml(cl, false)).join("");
   box.innerHTML = `<div class="claim-count">클레임 이력 ${claims.length}건</div><div class="claim-list">${items}</div>`;
+}
+
+function formatSheetDate(d){
+  return `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}`;
+}
+
+async function renderYesterdayClaims(){
+  const el = document.getElementById("yesterdayClaims");
+  if(!el) return;
+  try{
+    const claims = await loadClaims();
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const yStr = formatSheetDate(y);
+    const list = claims.filter(cl => cl.date === yStr).sort((a,b) => (a.time||"").localeCompare(b.time||""));
+    if(list.length === 0){
+      el.innerHTML = `<div class="claim-empty">어제(${yStr}) 접수된 클레임이 없습니다</div>`;
+      return;
+    }
+    const items = list.map(cl => claimItemHtml(cl, true)).join("");
+    el.innerHTML = `<div class="claim-count">${yStr} · ${list.length}건</div><div class="claim-list">${items}</div>`;
+  }catch(e){
+    el.innerHTML = `<div class="claim-empty">클레임 데이터를 불러오지 못했습니다</div>`;
+  }
 }
 
 /* ---------- pharmacy search ---------- */
@@ -2157,6 +2189,7 @@ pharmResultsEl.addEventListener("click", (e)=>{
 
 pharmInput.addEventListener("input", renderPharmSearch);
 renderPharmSearch();
+renderYesterdayClaims();
 
 setupCompany();
 </script>
