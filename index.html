@@ -125,6 +125,7 @@
   .pharm-input{width:100%; padding:11px 14px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:14px;}
   .pharm-hint{font-size:12px; color:var(--sub); margin-top:8px;}
   .pharm-card{border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-top:10px;}
+  .pharm-card-head{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
   .pharm-name{font-weight:700; font-size:14.5px; display:inline-flex; align-items:center; gap:6px;}
   .pharm-addr{font-size:12.3px; color:var(--sub); margin:2px 0 10px;}
   .zone-badge{display:inline-block; font-size:10.8px; font-weight:700; padding:1px 7px; border-radius:20px; white-space:nowrap; background:var(--rose-bg); color:var(--rose); cursor:help;}
@@ -133,6 +134,20 @@
   .pharm-co{border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:12.3px; border-left:3px solid var(--border);}
   .pharm-co.covered{border-left-color:var(--accent);}
   .pharm-co.none{opacity:.5;}
+  .claim-link{flex:none; font-size:11px; font-weight:600; color:var(--accent); background:var(--accent-bg); border:none; border-radius:20px; padding:3px 9px; cursor:pointer; white-space:nowrap;}
+  .claim-link:hover{opacity:.8;}
+  .claim-panel{margin-top:10px; padding-top:8px; border-top:1px dashed var(--border);}
+  .claim-loading,.claim-empty{font-size:12px; color:var(--sub);}
+  .claim-count{font-size:11.5px; font-weight:600; color:var(--sub); margin-bottom:6px;}
+  .claim-list{display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;}
+  .claim-item{border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:12.3px;}
+  .claim-meta{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:4px; color:var(--sub); font-size:11.5px;}
+  .claim-type{background:var(--accent-bg); color:var(--accent); padding:1px 7px; border-radius:20px; font-weight:600;}
+  .claim-content{margin-bottom:4px;}
+  .claim-action{color:var(--sub); font-size:11.8px; margin-bottom:4px;}
+  .claim-status{display:inline-block; font-size:11px; font-weight:700; padding:1px 7px; border-radius:20px;}
+  .claim-status.done{background:var(--green-bg); color:var(--green);}
+  .claim-status.pending{background:var(--amber-bg); color:var(--amber);}
   .pharm-co-name{font-weight:700; margin-bottom:5px; font-size:12.5px;}
   .pharm-co-depot{color:var(--sub); font-size:11.5px; margin-bottom:4px;}
   .pharm-co-note{font-size:11px; color:var(--accent); margin-top:5px;}
@@ -1908,6 +1923,85 @@ function resolveIpharmExact(pharmacyName, address){
   return null;
 }
 
+/* ---------- claim history (live from Google Sheets, updates daily) ---------- */
+const CLAIMS_SHEET_ID = "1Nv3R7p5rMBjsEH471K8WksanjLoPkUs3yxpfDiiH1eM";
+const CLAIMS_SHEETS = ["26년 DB", "25년 DB"];
+let CLAIMS_DATA = null;
+let CLAIMS_PROMISE = null;
+
+function escHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function normPharmName(s){ return String(s||"").replace(/\s+/g,""); }
+function extractRegionTokens(addr){
+  return new Set(String(addr||"").match(/[가-힣]{2,}(?:시|군|구)/g) || []);
+}
+
+async function loadClaims(){
+  if(CLAIMS_DATA) return CLAIMS_DATA;
+  if(CLAIMS_PROMISE) return CLAIMS_PROMISE;
+  CLAIMS_PROMISE = (async () => {
+    const all = [];
+    for(const sheetName of CLAIMS_SHEETS){
+      try{
+        const url = `https://docs.google.com/spreadsheets/d/${CLAIMS_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+        const text = await (await fetch(url)).text();
+        const m = text.match(/setResponse\(([\s\S]*)\);\s*$/);
+        if(!m) continue;
+        const json = JSON.parse(m[1]);
+        const cols = json.table.cols.map(c=>c.label);
+        const ci = {
+          date: cols.indexOf("접수일시"), name: cols.indexOf("약국명"), addr: cols.indexOf("신약국주소"),
+          type: cols.indexOf("문의유형"), subtype: cols.indexOf("유형소분류"), content: cols.indexOf("컴플레인 내용"),
+          action: cols.indexOf("조치사항"), status: cols.indexOf("답변후 처리완료 현황"),
+        };
+        (json.table.rows || []).forEach(r=>{
+          const c = r.c || [];
+          const get = i => { if(i<0 || !c[i]) return ""; const cell=c[i]; return cell.f !== undefined ? cell.f : (cell.v == null ? "" : cell.v); };
+          const name = get(ci.name);
+          if(!name) return;
+          all.push({
+            key: normPharmName(name),
+            date: get(ci.date), addr: get(ci.addr), type: get(ci.type), subtype: get(ci.subtype),
+            content: get(ci.content), action: get(ci.action), status: get(ci.status), source: sheetName,
+          });
+        });
+      }catch(e){ /* 해당 연도 시트 로드 실패 시 건너뜀 */ }
+    }
+    all.reverse(); // 시트 하단(최근 등록분)이 먼저 보이도록
+    CLAIMS_DATA = all;
+    return all;
+  })();
+  return CLAIMS_PROMISE;
+}
+
+function renderClaimBox(box, p){
+  const key = normPharmName(p.n);
+  const pTokens = extractRegionTokens(p.a);
+  const claims = (CLAIMS_DATA || []).filter(cl => {
+    if(cl.key !== key) return false;
+    const cTokens = extractRegionTokens(cl.addr);
+    if(pTokens.size === 0 || cTokens.size === 0) return true; // 주소 형식이 달라 지역 토큰을 못 뽑으면 보수적으로 포함
+    for(const t of cTokens) if(pTokens.has(t)) return true;
+    return false;
+  });
+  if(claims.length === 0){
+    box.innerHTML = `<div class="claim-empty">클레임 이력 없음</div>`;
+    return;
+  }
+  const items = claims.map(cl => {
+    const done = /완료/.test(cl.status);
+    const typeLabel = [cl.type, cl.subtype].filter(Boolean).join(" · ");
+    return `<div class="claim-item">
+      <div class="claim-meta"><span>${escHtml(cl.date)}</span>${typeLabel ? `<span class="claim-type">${escHtml(typeLabel)}</span>` : ""}<span>${escHtml(cl.source)}</span></div>
+      <div class="claim-content">${escHtml(cl.content)}</div>
+      ${cl.action ? `<div class="claim-action">조치: ${escHtml(cl.action)}</div>` : ""}
+      <span class="claim-status ${done ? "done" : "pending"}">${escHtml(cl.status) || "처리현황 미기재"}</span>
+    </div>`;
+  }).join("");
+  box.innerHTML = `<div class="claim-count">클레임 이력 ${claims.length}건</div><div class="claim-list">${items}</div>`;
+}
+
 /* ---------- pharmacy search ---------- */
 const ZONE_TYPE_NAMES = {
   1: "차 없는 거리(보행자 전용거리)",
@@ -1921,6 +2015,7 @@ const pharmInput = document.getElementById("pharmSearch");
 const pharmResultsEl = document.getElementById("pharmResults");
 const pharmHintEl = document.getElementById("pharmHint");
 const PHARM_RESULT_LIMIT = 20;
+let PHARM_LAST_SHOWN = [];
 
 function renderPharmSearch(){
   const q = pharmInput.value.trim();
@@ -1944,7 +2039,7 @@ function renderPharmSearch(){
   pharmHintEl.textContent = `${matches.length}건 검색됨` +
     (matches.length > shown.length ? ` · 상위 ${shown.length}건만 표시 (이름을 더 구체적으로 입력하면 좁혀집니다)` : "");
 
-  pharmResultsEl.innerHTML = shown.map(p=>{
+  pharmResultsEl.innerHTML = shown.map((p,i)=>{
     const feature = resolveAddressFeature(p.a);
     const companyBlocks = COMPANY_NAMES.map(company=>{
       const row = feature ? COMPANY_CODE_INDEX[company][feature.code] : null;
@@ -2022,13 +2117,38 @@ function renderPharmSearch(){
     const zoneBadge = p.sz ? `<span class="zone-badge" title="${zoneTitle}">⚠ 특수지역</span>` : "";
     const zoneReason = p.sz ? `<div class="zone-reason">${zoneReasonText}</div>` : "";
     return `<div class="pharm-card">
-      <div class="pharm-name">${p.n}${zoneBadge}</div>
+      <div class="pharm-card-head">
+        <div class="pharm-name">${p.n}${zoneBadge}</div>
+        <button class="claim-link" data-idx="${i}">클레임 이력</button>
+      </div>
       <div class="pharm-addr">${zipTag}${p.a}${addrNote}</div>
       ${zoneReason}
       <div class="pharm-companies">${companyBlocks}</div>
+      <div class="claim-panel" id="claimPanel_${i}" hidden></div>
     </div>`;
   }).join("");
+
+  PHARM_LAST_SHOWN = shown;
 }
+
+pharmResultsEl.addEventListener("click", (e)=>{
+  const btn = e.target.closest(".claim-link");
+  if(!btn) return;
+  const idx = Number(btn.dataset.idx);
+  const panel = document.getElementById("claimPanel_"+idx);
+  const p = PHARM_LAST_SHOWN[idx];
+  if(!panel || !p) return;
+  const opening = panel.hidden;
+  panel.hidden = !opening;
+  if(!opening || panel.dataset.loaded) return;
+  panel.innerHTML = `<div class="claim-loading">클레임 이력 확인 중…</div>`;
+  loadClaims().then(()=>{
+    renderClaimBox(panel, p);
+    panel.dataset.loaded = "1";
+  }).catch(()=>{
+    panel.innerHTML = `<div class="claim-empty">클레임 데이터를 불러오지 못했습니다</div>`;
+  });
+});
 
 pharmInput.addEventListener("input", renderPharmSearch);
 renderPharmSearch();
