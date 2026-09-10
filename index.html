@@ -138,6 +138,9 @@
   .claim-panel{margin-top:10px; padding-top:8px; border-top:1px dashed var(--border);}
   .claim-loading,.claim-empty{font-size:12px; color:var(--sub);}
   .claim-count{font-size:11.5px; font-weight:600; color:var(--sub); margin-bottom:6px;}
+  .claim-subhead{font-size:12px; font-weight:700; margin:10px 0 6px;}
+  .claim-subhead.pending{color:var(--amber);}
+  .claim-subhead.done{color:var(--green);}
   .claim-list{display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;}
   .claim-item{border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:12.3px;}
   .claim-meta{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:4px; color:var(--sub); font-size:11.5px;}
@@ -2035,8 +2038,14 @@ async function renderYesterdayClaims(){
       el.innerHTML = `<div class="claim-empty">어제(${yStr}) 접수된 클레임이 없습니다</div>`;
       return;
     }
-    const items = list.map(cl => claimItemHtml(cl, true)).join("");
-    el.innerHTML = `<div class="claim-count">${yStr} · ${list.length}건</div><div class="claim-list">${items}</div>`;
+    const pending = list.filter(cl => !/완료/.test(cl.status));
+    const done = list.filter(cl => /완료/.test(cl.status));
+    const section = (title, cls, arr) => arr.length
+      ? `<div class="claim-subhead ${cls}">${title} (${arr.length}건)</div><div class="claim-list">${arr.map(cl=>claimItemHtml(cl,true)).join("")}</div>`
+      : "";
+    el.innerHTML = `<div class="claim-count">${yStr} · 총 ${list.length}건</div>`
+      + section("⏳ 처리 필요", "pending", pending)
+      + section("✅ 처리완료", "done", done);
   }catch(e){
     el.innerHTML = `<div class="claim-empty">클레임 데이터를 불러오지 못했습니다</div>`;
   }
