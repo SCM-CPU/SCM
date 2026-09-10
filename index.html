@@ -125,7 +125,6 @@
   .pharm-input{width:100%; padding:11px 14px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:14px;}
   .pharm-hint{font-size:12px; color:var(--sub); margin-top:8px;}
   .pharm-card{border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-top:10px;}
-  .pharm-card-head{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
   .pharm-name{font-weight:700; font-size:14.5px; display:inline-flex; align-items:center; gap:6px;}
   .pharm-addr{font-size:12.3px; color:var(--sub); margin:2px 0 10px;}
   .zone-badge{display:inline-block; font-size:10.8px; font-weight:700; padding:1px 7px; border-radius:20px; white-space:nowrap; background:var(--rose-bg); color:var(--rose); cursor:help;}
@@ -134,7 +133,7 @@
   .pharm-co{border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:12.3px; border-left:3px solid var(--border);}
   .pharm-co.covered{border-left-color:var(--accent);}
   .pharm-co.none{opacity:.5;}
-  .claim-link{flex:none; font-size:11px; font-weight:600; color:var(--accent); background:var(--accent-bg); border:none; border-radius:20px; padding:3px 9px; cursor:pointer; white-space:nowrap;}
+  .claim-link{flex:none; font-size:11.5px; font-weight:700; color:var(--rose); background:none; border:none; padding:0; margin-left:2px; cursor:pointer; white-space:nowrap; text-decoration:underline;}
   .claim-link:hover{opacity:.8;}
   .claim-panel{margin-top:10px; padding-top:8px; border-top:1px dashed var(--border);}
   .claim-loading,.claim-empty{font-size:12px; color:var(--sub);}
@@ -2117,10 +2116,7 @@ function renderPharmSearch(){
     const zoneBadge = p.sz ? `<span class="zone-badge" title="${zoneTitle}">⚠ 특수지역</span>` : "";
     const zoneReason = p.sz ? `<div class="zone-reason">${zoneReasonText}</div>` : "";
     return `<div class="pharm-card">
-      <div class="pharm-card-head">
-        <div class="pharm-name">${p.n}${zoneBadge}</div>
-        <button class="claim-link" data-idx="${i}">클레임 이력</button>
-      </div>
+      <div class="pharm-name">${p.n}${zoneBadge}<button class="claim-link" data-idx="${i}">클레임 이력</button></div>
       <div class="pharm-addr">${zipTag}${p.a}${addrNote}</div>
       ${zoneReason}
       <div class="pharm-companies">${companyBlocks}</div>
