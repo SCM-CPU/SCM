@@ -1932,8 +1932,24 @@ function escHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 function normPharmName(s){ return String(s||"").replace(/\s+/g,""); }
-function extractRegionTokens(addr){
-  return new Set(String(addr||"").match(/[가-힣]{2,}(?:시|군|구)/g) || []);
+function extractDongTokens(addr){
+  return new Set(String(addr||"").match(/[가-힣]{2,}(?:동|읍|면|리)/g) || []);
+}
+function extractGuTokens(addr){
+  const all = String(addr||"").match(/[가-힣]{2,}(?:시|군|구)/g) || [];
+  // "서울특별시"/"OO광역시" 등 광역 단위는 같은 이름 약국끼리 항상 겹쳐서 변별력이 없으므로 제외
+  return new Set(all.filter(t => !/(?:특별시|광역시|특별자치시)$/.test(t)));
+}
+function sameRegion(addrA, addrB){
+  const dongA = extractDongTokens(addrA), dongB = extractDongTokens(addrB);
+  if(dongA.size && dongB.size){
+    for(const t of dongA) if(dongB.has(t)) return true;
+    return false; // 둘 다 동 정보가 있는데 겹치지 않으면 다른 위치
+  }
+  const guA = extractGuTokens(addrA), guB = extractGuTokens(addrB);
+  if(guA.size === 0 || guB.size === 0) return true; // 주소 형식이 달라 지역 토큰을 못 뽑으면 보수적으로 포함
+  for(const t of guA) if(guB.has(t)) return true;
+  return false;
 }
 
 async function loadClaims(){
@@ -1976,14 +1992,7 @@ async function loadClaims(){
 
 function renderClaimBox(box, p){
   const key = normPharmName(p.n);
-  const pTokens = extractRegionTokens(p.a);
-  const claims = (CLAIMS_DATA || []).filter(cl => {
-    if(cl.key !== key) return false;
-    const cTokens = extractRegionTokens(cl.addr);
-    if(pTokens.size === 0 || cTokens.size === 0) return true; // 주소 형식이 달라 지역 토큰을 못 뽑으면 보수적으로 포함
-    for(const t of cTokens) if(pTokens.has(t)) return true;
-    return false;
-  });
+  const claims = (CLAIMS_DATA || []).filter(cl => cl.key === key && sameRegion(p.a, cl.addr));
   if(claims.length === 0){
     box.innerHTML = `<div class="claim-empty">클레임 이력 없음</div>`;
     return;
