@@ -1979,6 +1979,16 @@ const DEPOT_NAME_MAP = {
   "유진약품(배송)": "유진약품 광주센터",
 };
 
+function resolveDepotForAddress(addr){
+  const feature = resolveAddressFeature(addr);
+  if(!feature) return null;
+  for(const company of COMPANY_NAMES){
+    const row = COMPANY_CODE_INDEX[company] && COMPANY_CODE_INDEX[company][feature.code];
+    if(row) return row.depot;
+  }
+  return null;
+}
+
 async function loadClaims(){
   if(CLAIMS_DATA) return CLAIMS_DATA;
   if(CLAIMS_PROMISE) return CLAIMS_PROMISE;
@@ -2003,12 +2013,18 @@ async function loadClaims(){
           const get = i => { if(i<0 || !c[i]) return ""; const cell=c[i]; return cell.f !== undefined ? cell.f : (cell.v == null ? "" : cell.v); };
           const name = get(ci.name);
           if(!name) return;
+          const addr = get(ci.addr);
           const rawDepot = get(ci.depot);
+          // "용마로지스(반품)"는 반품 전담 물류사일 뿐 실제 배송 거점이 아니므로, 약국 주소로 실제 담당 거점을 찾아 대신 표시
+          let depot = DEPOT_NAME_MAP[rawDepot] || rawDepot;
+          if(rawDepot === "용마로지스(반품)"){
+            depot = resolveDepotForAddress(addr) || rawDepot;
+          }
           all.push({
             key: normPharmName(name), name,
-            date: get(ci.date), time: get(ci.time), addr: get(ci.addr), type: get(ci.type), subtype: get(ci.subtype),
+            date: get(ci.date), time: get(ci.time), addr, type: get(ci.type), subtype: get(ci.subtype),
             content: get(ci.content), action: get(ci.action), status: get(ci.status),
-            depot: DEPOT_NAME_MAP[rawDepot] || rawDepot, source: sheetName,
+            depot, source: sheetName,
           });
         });
       }catch(e){ /* 해당 연도 시트 로드 실패 시 건너뜀 */ }
