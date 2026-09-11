@@ -177,7 +177,7 @@
   </header>
 
   <div class="panel">
-    <h2>🗓 어제의 클레임</h2>
+    <h2>🗓 클레임 현황</h2>
     <div id="yesterdayClaims" class="claim-loading">클레임 이력 확인 중…</div>
   </div>
 
@@ -2024,6 +2024,10 @@ function renderClaimBox(box, p){
 function formatSheetDate(d){
   return `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}`;
 }
+function parseSheetDate(s){
+  const m = String(s||"").match(/(\d+)\s*\.\s*(\d+)\s*\.\s*(\d+)/);
+  return m ? new Date(Number(m[1]), Number(m[2])-1, Number(m[3])) : null;
+}
 
 async function renderYesterdayClaims(){
   const el = document.getElementById("yesterdayClaims");
@@ -2033,19 +2037,28 @@ async function renderYesterdayClaims(){
     const y = new Date();
     y.setDate(y.getDate() - 1);
     const yStr = formatSheetDate(y);
-    const list = claims.filter(cl => cl.date === yStr).sort((a,b) => (a.time||"").localeCompare(b.time||""));
-    if(list.length === 0){
-      el.innerHTML = `<div class="claim-empty">어제(${yStr}) 접수된 클레임이 없습니다</div>`;
+
+    // 2026년 3월 이후 접수분 중 상태가 빈칸(=아직 처리 안 됨)인 건만 해결될 때까지 계속 노출.
+    // 2026년은 "진행중" 라벨을 안 쓰고 빈칸/처리완료 둘로만 운영되고 있어 빈칸을 미해결로 간주함.
+    const pendingCutoff = new Date(2026, 2, 1); // 2026-03-01
+    const pending = claims.filter(cl => {
+      if(cl.source !== "26년 DB" || cl.status) return false;
+      const d = parseSheetDate(cl.date);
+      return d && d >= pendingCutoff;
+    }).sort((a,b) => (parseSheetDate(a.date)||0) - (parseSheetDate(b.date)||0) || (a.time||"").localeCompare(b.time||""));
+    // 처리완료 건은 어제 접수분만 참고용으로 보여줌
+    const doneYesterday = claims.filter(cl => cl.date === yStr && /완료/.test(cl.status))
+      .sort((a,b) => (a.time||"").localeCompare(b.time||""));
+
+    if(pending.length === 0 && doneYesterday.length === 0){
+      el.innerHTML = `<div class="claim-empty">처리 필요한 클레임이 없고, 어제(${yStr}) 접수된 건도 없습니다</div>`;
       return;
     }
-    const pending = list.filter(cl => !/완료/.test(cl.status));
-    const done = list.filter(cl => /완료/.test(cl.status));
     const section = (title, cls, arr) => arr.length
       ? `<div class="claim-subhead ${cls}">${title} (${arr.length}건)</div><div class="claim-list">${arr.map(cl=>claimItemHtml(cl,true)).join("")}</div>`
       : "";
-    el.innerHTML = `<div class="claim-count">${yStr} · 총 ${list.length}건</div>`
-      + section("⏳ 처리 필요", "pending", pending)
-      + section("✅ 처리완료", "done", done);
+    el.innerHTML = section("⏳ 처리 필요 (2026.3~, 상태 미기재)", "pending", pending)
+      + section(`✅ 어제(${yStr}) 처리완료`, "done", doneYesterday);
   }catch(e){
     el.innerHTML = `<div class="claim-empty">클레임 데이터를 불러오지 못했습니다</div>`;
   }
