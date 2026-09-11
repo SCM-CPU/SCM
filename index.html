@@ -1962,6 +1962,23 @@ function sameRegion(addrA, addrB){
   return false;
 }
 
+// 클레임 시트의 "출고지(문제지점)"는 CS 담당자가 자유 텍스트로 입력하는 칸이라 표기가 제각각이다.
+// 우리 11개 거점에 해당하는 값만 표준 명칭으로 통일하고, 공장 직송/반품물류/타 종합도매 등
+// 거점 밖의 값(안성공장, 용마로지스, 대전지오영 등)은 원문 그대로 둔다.
+const DEPOT_NAME_MAP = {
+  "김포이지메디컴": "이지메디컴 김포센터",
+  "향남이지메디컴": "이지메디컴 향남센터",
+  "평택복산나이스": "복산나이스 평택센터",
+  "부산복산나이스": "복산나이스 부산센터",
+  "파주백제약품": "백제약품 파주센터",
+  "대전백제약품": "백제약품 대전센터",
+  "원주백제약품": "백제약품 원주센터",
+  "창원백제약품": "백제약품 창원센터",
+  "평택백제약품": "백제약품 평택센터",
+  "대구아이팜코리아": "아이팜코리아",
+  "유진약품(배송)": "유진약품 광주센터",
+};
+
 async function loadClaims(){
   if(CLAIMS_DATA) return CLAIMS_DATA;
   if(CLAIMS_PROMISE) return CLAIMS_PROMISE;
@@ -1986,10 +2003,12 @@ async function loadClaims(){
           const get = i => { if(i<0 || !c[i]) return ""; const cell=c[i]; return cell.f !== undefined ? cell.f : (cell.v == null ? "" : cell.v); };
           const name = get(ci.name);
           if(!name) return;
+          const rawDepot = get(ci.depot);
           all.push({
             key: normPharmName(name), name,
             date: get(ci.date), time: get(ci.time), addr: get(ci.addr), type: get(ci.type), subtype: get(ci.subtype),
-            content: get(ci.content), action: get(ci.action), status: get(ci.status), depot: get(ci.depot), source: sheetName,
+            content: get(ci.content), action: get(ci.action), status: get(ci.status),
+            depot: DEPOT_NAME_MAP[rawDepot] || rawDepot, source: sheetName,
           });
         });
       }catch(e){ /* 해당 연도 시트 로드 실패 시 건너뜀 */ }
