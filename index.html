@@ -2091,10 +2091,10 @@ async function renderYesterdayClaims(){
       if(cl.source !== "26년 DB" || cl.status) return false;
       const d = parseSheetDate(cl.date);
       return d && d >= pendingCutoff;
-    }).sort((a,b) => (parseSheetDate(a.date)||0) - (parseSheetDate(b.date)||0) || (a.time||"").localeCompare(b.time||""));
+    }).sort((a,b) => (parseSheetDate(b.date)||0) - (parseSheetDate(a.date)||0) || (b.time||"").localeCompare(a.time||""));
     // 처리완료 건은 어제 접수분만 참고용으로 보여줌
     const doneYesterday = claims.filter(cl => cl.date === yStr && /완료/.test(cl.status))
-      .sort((a,b) => (a.time||"").localeCompare(b.time||""));
+      .sort((a,b) => (b.time||"").localeCompare(a.time||""));
 
     if(pending.length === 0 && doneYesterday.length === 0){
       el.innerHTML = `<div class="claim-empty">처리 필요한 클레임이 없고, 어제(${yStr}) 접수된 건도 없습니다</div>`;
