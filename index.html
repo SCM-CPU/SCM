@@ -1991,6 +1991,9 @@ const DEPOT_NAME_MAP = {
 };
 // 환입/반품, 주문취소 관련은 클레임 성격이 아니라 단순 처리 요청이라 클레임 목록에서 항상 제외
 const EXCLUDED_CLAIM_TYPES = new Set(["환입관련", "주문취소"]);
+// 클레임 시트의 약국명 칸엔 병원/의원, 도매/물류업체 등 실제 등록 약국이 아닌 거래처도 섞여 들어옴 -
+// 마스터 약국 DB(PHARMACIES)에 실제로 등록된 이름만 클레임 목록에 포함시켜 걸러낸다
+const PHARMACY_NAME_SET = new Set(PHARMACIES.map(p => normPharmName(p.n)));
 
 function resolveDepotForAddress(addr){
   const feature = resolveAddressFeature(addr);
@@ -2026,6 +2029,7 @@ async function loadClaims(){
           const get = i => { if(i<0 || !c[i]) return ""; const cell=c[i]; return cell.f !== undefined ? cell.f : (cell.v == null ? "" : cell.v); };
           const name = get(ci.name);
           if(!name) return;
+          if(!PHARMACY_NAME_SET.has(normPharmName(name))) return; // 약국이 아닌 거래처(병원/의원, 도매/물류업체 등) 제외
           const claimType = get(ci.type);
           if(EXCLUDED_CLAIM_TYPES.has(claimType)) return; // 환입/반품, 주문취소 관련은 클레임 목록에서 제외
           const addr = get(ci.addr);
