@@ -1989,6 +1989,8 @@ const DEPOT_NAME_MAP = {
   "대구아이팜코리아": "아이팜코리아",
   "유진약품(배송)": "유진약품 광주센터",
 };
+// 환입/반품, 주문취소 관련은 클레임 성격이 아니라 단순 처리 요청이라 클레임 목록에서 항상 제외
+const EXCLUDED_CLAIM_TYPES = new Set(["환입관련", "주문취소"]);
 
 function resolveDepotForAddress(addr){
   const feature = resolveAddressFeature(addr);
@@ -2024,6 +2026,8 @@ async function loadClaims(){
           const get = i => { if(i<0 || !c[i]) return ""; const cell=c[i]; return cell.f !== undefined ? cell.f : (cell.v == null ? "" : cell.v); };
           const name = get(ci.name);
           if(!name) return;
+          const claimType = get(ci.type);
+          if(EXCLUDED_CLAIM_TYPES.has(claimType)) return; // 환입/반품, 주문취소 관련은 클레임 목록에서 제외
           const addr = get(ci.addr);
           const rawDepot = get(ci.depot);
           // "용마로지스(반품)"는 반품 전담 물류사일 뿐 실제 배송 거점이 아니므로, 약국 주소로 실제 담당 거점을 찾아 대신 표시
@@ -2033,7 +2037,7 @@ async function loadClaims(){
           }
           all.push({
             key: normPharmName(name), name,
-            date: get(ci.date), time: get(ci.time), addr, type: get(ci.type), subtype: get(ci.subtype),
+            date: get(ci.date), time: get(ci.time), addr, type: claimType, subtype: get(ci.subtype),
             content: get(ci.content), action: get(ci.action), status: get(ci.status),
             depot, source: sheetName,
           });
