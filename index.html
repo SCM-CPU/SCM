@@ -2032,6 +2032,10 @@ async function loadClaims(){
           if(!PHARMACY_NAME_SET.has(normPharmName(name))) return; // 약국이 아닌 거래처(병원/의원, 도매/물류업체 등) 제외
           const claimType = get(ci.type);
           if(EXCLUDED_CLAIM_TYPES.has(claimType)) return; // 환입/반품, 주문취소 관련은 클레임 목록에서 제외
+          const content = get(ci.content);
+          const action = get(ci.action);
+          // 반품건은 용마로직스가 전담하므로, 문의유형이 다르게 찍혀 있어도 내용에 환입/반품이 언급되면 클레임에서 제외
+          if(/환입|반품/.test(content) || /환입|반품/.test(action)) return;
           const addr = get(ci.addr);
           const rawDepot = get(ci.depot);
           // "용마로지스(반품)"는 반품 전담 물류사일 뿐 실제 배송 거점이 아니므로, 약국 주소로 실제 담당 거점을 찾아 대신 표시
@@ -2042,7 +2046,7 @@ async function loadClaims(){
           all.push({
             key: normPharmName(name), name,
             date: get(ci.date), time: get(ci.time), addr, type: claimType, subtype: get(ci.subtype),
-            content: get(ci.content), action: get(ci.action), status: get(ci.status),
+            content, action, status: get(ci.status),
             depot, source: sheetName,
           });
         });
