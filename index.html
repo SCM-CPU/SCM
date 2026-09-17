@@ -370,13 +370,33 @@ if(COMPANIES["백제약품"] && !COMPANIES["백제약품"].rows.some(r=>r.short=
     policies:[{label:"1일 1배송", cls:"p-1", order:"정보 없음", deliver:"정보 없음", sat:"정보 없음"}]});
 }
 
-/* ---------- depot color hashing ---------- */
+/* ---------- depot color ---------- */
+// 11개 거점을 색상환에 균등 배치(360/11≈33°씩)해서 서로 항상 뚜렷이 구분되게 고정.
+// 예전엔 이름을 해시해서 색조를 뽑았는데, 우연히 "백제약품 파주센터"와 "유진약품 광주센터"가
+// 10도밖에 안 떨어져 거의 같은 색으로 보이는 문제가 있었음 - 고정 팔레트로 교체해 해결.
+const DEPOT_COLOR_HUES = {
+  "백제약품 파주센터": 0,
+  "복산나이스 평택센터": 33,
+  "백제약품 창원센터": 65,
+  "복산나이스 부산센터": 98,
+  "아이팜코리아": 131,
+  "유진약품 광주센터": 164,
+  "이지메디컴 김포센터": 196,
+  "이지메디컴 향남센터": 229,
+  "백제약품 대전센터": 262,
+  "백제약품 원주센터": 295,
+  "백제약품 평택센터": 327,
+};
 const depotColorCache = {};
 function depotColor(name){
   if(depotColorCache[name]) return depotColorCache[name];
-  let hash = 0;
-  for(let i=0;i<name.length;i++){ hash = (hash*31 + name.charCodeAt(i)) >>> 0; }
-  const hue = hash % 360;
+  let hue = DEPOT_COLOR_HUES[name];
+  if(hue === undefined){
+    // 목록에 없는(향후 신설) 거점은 이름 해시로 대체 배정
+    let hash = 0;
+    for(let i=0;i<name.length;i++){ hash = (hash*31 + name.charCodeAt(i)) >>> 0; }
+    hue = hash % 360;
+  }
   const c = {fg:`hsl(${hue} 65% 38%)`, bg:`hsl(${hue} 75% 94%)`};
   depotColorCache[name] = c;
   return c;
