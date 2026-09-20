@@ -2068,6 +2068,8 @@ async function loadClaims(){
           if(rawDepot === "용마로지스(반품)"){
             depot = resolveDepotForAddress(addr) || rawDepot;
           }
+          // 협력도매 5개사가 아닌 출고지(공장 직송, 타 종합도매, 미상 등)에서 발생한 클레임은 제외
+          if(!COMPANY_NAMES.some(c => depot.includes(c))) return;
           all.push({
             key: normPharmName(name), name,
             date: get(ci.date), time: get(ci.time), addr, type: claimType, subtype: get(ci.subtype),
