@@ -2040,6 +2040,8 @@ const DEPOT_CS_CONTACTS = {
 // 원본 구글시트(IMPORTRANGE 미러라 여기선 수정 불가)에 반영 못하는 상태값 수정을 대시보드에서만 강제 적용
 const CLAIM_STATUS_OVERRIDES = {
   "땅콩약국|9/14 대웅제약 주문건 미수령 > 배송시간 빠른 시간 확인 부탁드립니다.": "처리완료",
+  // CS 담당자 표시 기능 데모용으로 임의 지정(실제로는 처리완료된 건) - 데모 끝나면 이 줄 삭제
+  "언남이화약국|9/22 대웅제약 주문건 기사님 출발하신걸로 확인되나 약국이 문을 닫는다고 하여 옆집에  \"마가의 다락방\" \n에 맡겨달라고 요청 주셨습니다. 전달하시고 사진 약사님한테 전달가능할까요?": "",
 };
 // 클레임 시트의 약국명 칸엔 병원/의원, 도매/물류업체 등 실제 등록 약국이 아닌 거래처도 섞여 들어옴 -
 // 마스터 약국 DB(PHARMACIES)에 실제로 등록된 이름만 클레임 목록에 포함시켜 걸러낸다
@@ -2095,7 +2097,8 @@ async function loadClaims(){
           }
           // 협력도매 5개사가 아닌 출고지(공장 직송, 타 종합도매, 미상 등)에서 발생한 클레임은 제외
           if(!COMPANY_NAMES.some(c => depot.includes(c))) return;
-          const status = CLAIM_STATUS_OVERRIDES[name + "|" + content] || get(ci.status);
+          const statusKey = name + "|" + content;
+          const status = Object.prototype.hasOwnProperty.call(CLAIM_STATUS_OVERRIDES, statusKey) ? CLAIM_STATUS_OVERRIDES[statusKey] : get(ci.status);
           all.push({
             key: normPharmName(name), name,
             date: get(ci.date), time: get(ci.time), addr, type: claimType, subtype: get(ci.subtype),
