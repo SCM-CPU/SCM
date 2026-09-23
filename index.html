@@ -154,6 +154,10 @@
   .claim-content{margin-bottom:4px;}
   .claim-action{color:var(--sub); font-size:11.8px; margin-bottom:4px;}
   .claim-status{display:inline-block; font-size:11px; font-weight:700; padding:1px 7px; border-radius:20px;}
+  .claim-cs{display:inline-block; margin-left:6px; vertical-align:middle;}
+  .claim-cs summary{display:inline; cursor:pointer; font-size:11px; font-weight:600; color:var(--accent); list-style:none;}
+  .claim-cs summary::-webkit-details-marker{display:none;}
+  .claim-cs-info{display:inline-block; margin-left:5px; font-size:11px; color:var(--sub);}
   .claim-status.done{background:var(--green-bg); color:var(--green);}
   .claim-status.pending{background:var(--amber-bg); color:var(--amber);}
   .pharm-co-name{font-weight:700; margin-bottom:5px; font-size:12.5px;}
@@ -2016,6 +2020,23 @@ const DEPOT_NAME_MAP = {
 };
 // 환입/반품, 주문취소 관련은 클레임 성격이 아니라 단순 처리 요청이라 클레임 목록에서 항상 제외
 const EXCLUDED_CLAIM_TYPES = new Set(["환입관련", "주문취소"]);
+// 거점도매별 CS 담당자 연락처(CS연락처.pdf, 1단계 거점도매 CS담당자 기준) - 처리완료 미기재 건에만 노출
+const DEPOT_CS_CONTACTS = {
+  "복산나이스 평택센터": {name:"김동균(대리)", phone:"010-8295-8680"},
+  "복산나이스 부산센터": {name:"권혁준(대리)", phone:"010-4344-8660"},
+  "아이팜코리아": {name:"전원형(과장)", phone:"010-7188-3693"},
+  "백제약품 대전센터": {name:"박근상(주임)", phone:"010-4820-4670"},
+  "백제약품 원주센터": {name:"원영호(과장)", phone:"010-8977-3343"},
+  "유진약품 광주센터": {name:"박성국(과장)", phone:"010-7225-4527"},
+  "백제약품 창원센터": {name:"김재영(과장)", phone:"010-5502-8379"},
+  "이지메디컴 향남센터": {name:"곽문석", phone:"010-4255-1598"},
+  "백제약품 파주센터": {name:"심재경(부장)", phone:"010-7642-1975"},
+  "이지메디컴 김포센터": {name:"이주형", phone:"010-2789-9053"},
+  "백제약품 평택센터": {name:"이희성(과장)", phone:"010-3338-9114"},
+  "용마로지스(반품)": {name:"허진웅(책임)", phone:"010-7721-5948"},
+  "오산이지메디컴": {name:"박형준(님)", phone:"010-2229-1580"},
+  "향남공장": {name:"김현규(님)", phone:"010-2405-3209"},
+};
 // 원본 구글시트(IMPORTRANGE 미러라 여기선 수정 불가)에 반영 못하는 상태값 수정을 대시보드에서만 강제 적용
 const CLAIM_STATUS_OVERRIDES = {
   "땅콩약국|9/14 대웅제약 주문건 미수령 > 배송시간 빠른 시간 확인 부탁드립니다.": "처리완료",
@@ -2112,12 +2133,14 @@ function claimItemHtml(cl, showPharm){
   const done = /완료/.test(cl.status);
   const typeLabel = [cl.type, cl.subtype].filter(Boolean).join(" · ");
   const major = detectMajorClaim(cl);
+  const cs = !cl.status ? DEPOT_CS_CONTACTS[cl.depot] : null;
   return `<div class="claim-item${major ? " major" : ""}">
     ${major ? `<div class="claim-major-badge">🚨 중대클레임 · ${escHtml(major)}</div>` : ""}
     <div class="claim-meta">${showPharm ? `<span class="claim-pharm">${escHtml(cl.name)}</span>` : ""}<span>${escHtml(cl.date)}</span>${typeLabel ? `<span class="claim-type">${escHtml(typeLabel)}</span>` : ""}${cl.depot ? `<span class="claim-depot">🏭 ${escHtml(cl.depot)}</span>` : ""}<span>${escHtml(cl.source)}</span></div>
     <div class="claim-content">${escHtml(cl.content)}</div>
     ${cl.action ? `<div class="claim-action">조치: ${escHtml(cl.action)}</div>` : ""}
     <span class="claim-status ${done ? "done" : "pending"}">${escHtml(cl.status) || "처리현황 미기재"}</span>
+    ${cs ? `<details class="claim-cs"><summary>☎ CS 담당자</summary><span class="claim-cs-info">${escHtml(cs.name)} · ${escHtml(cs.phone)}</span></details>` : ""}
   </div>`;
 }
 
