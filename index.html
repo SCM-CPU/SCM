@@ -2016,6 +2016,10 @@ const DEPOT_NAME_MAP = {
 };
 // 환입/반품, 주문취소 관련은 클레임 성격이 아니라 단순 처리 요청이라 클레임 목록에서 항상 제외
 const EXCLUDED_CLAIM_TYPES = new Set(["환입관련", "주문취소"]);
+// 원본 구글시트(IMPORTRANGE 미러라 여기선 수정 불가)에 반영 못하는 상태값 수정을 대시보드에서만 강제 적용
+const CLAIM_STATUS_OVERRIDES = {
+  "땅콩약국|9/14 대웅제약 주문건 미수령 > 배송시간 빠른 시간 확인 부탁드립니다.": "처리완료",
+};
 // 클레임 시트의 약국명 칸엔 병원/의원, 도매/물류업체 등 실제 등록 약국이 아닌 거래처도 섞여 들어옴 -
 // 마스터 약국 DB(PHARMACIES)에 실제로 등록된 이름만 클레임 목록에 포함시켜 걸러낸다
 const PHARMACY_NAME_SET = new Set(PHARMACIES.map(p => normPharmName(p.n)));
@@ -2070,10 +2074,11 @@ async function loadClaims(){
           }
           // 협력도매 5개사가 아닌 출고지(공장 직송, 타 종합도매, 미상 등)에서 발생한 클레임은 제외
           if(!COMPANY_NAMES.some(c => depot.includes(c))) return;
+          const status = CLAIM_STATUS_OVERRIDES[name + "|" + content] || get(ci.status);
           all.push({
             key: normPharmName(name), name,
             date: get(ci.date), time: get(ci.time), addr, type: claimType, subtype: get(ci.subtype),
-            content, action, status: get(ci.status),
+            content, action, status,
             depot, source: sheetName,
           });
         });
