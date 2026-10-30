@@ -181,13 +181,39 @@
   .pharm-co-jonghap{font-size:11px; color:var(--accent); font-weight:700; margin:2px 0 4px;}
   .pharm-more{font-size:12px; color:var(--sub); margin-top:10px; text-align:center;}
 
+  .layout{display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:20px; align-items:start;}
+  .main{min-width:0;}
+  .kpi3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:16px;}
+  .rail{
+    --panel:rgba(255,255,255,.07); --text:#eef0f6; --sub:rgba(255,255,255,.62); --border:rgba(255,255,255,.18); --hover:rgba(255,255,255,.1);
+    --blue:#7d9cf2; --accent:#7d9cf2; --accent-bg:rgba(125,156,242,.2); --green:#5fcf9a; --green-bg:rgba(95,207,154,.16);
+    --amber:#e3bd6b; --amber-bg:rgba(227,189,107,.16); --rose:#ff9b94; --rose-bg:rgba(229,128,121,.18); --gold:#d9bb72;
+    position:sticky; top:16px; max-height:calc(100vh - 32px); overflow-y:auto; min-width:0;
+    background:linear-gradient(160deg, var(--navy-from), var(--navy-to)); border-radius:14px; padding:18px 16px; color:var(--text); box-shadow:var(--shadow);
+  }
+  .rail-title{font-size:15px; font-weight:800; margin:0 0 12px; display:flex; align-items:center; gap:9px; color:#fdfdff; letter-spacing:-.1px;}
+  .rail-title::before{content:""; width:4px; height:16px; border-radius:2px; background:var(--gold); flex:none;}
+  .rail-title:not(:first-of-type){margin-top:22px;}
+  .rail .claim-item.major{border-color:#ff9b94; background:rgba(229,128,121,.18);}
+  .rail .claim-major-badge{background:#c0392b;}
+  .rail .claim-list{max-height:340px;}
+  .major-alert{background:#c0392b; color:#fff; font-weight:700; font-size:13px; border-radius:10px; padding:10px 12px; margin-bottom:14px;}
+  .depot-bar{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 8px; font-size:12px; margin-bottom:9px;}
+  .depot-bar .nm{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .depot-bar .ct{font-weight:800; color:var(--gold);}
+  .depot-bar .tr{grid-column:1 / -1; height:7px; border-radius:4px; background:rgba(255,255,255,.12); overflow:hidden;}
+  .depot-bar .tr i{display:block; height:100%; border-radius:4px; background:var(--gold);}
+  @media (max-width:960px){
+    .layout{grid-template-columns:minmax(0,1fr);}
+    .rail{order:-1; position:static; max-height:none; overflow:visible;}
+  }
   @media (max-width:700px){
     header.top{padding:20px 16px 16px;}
     .wrap{padding:0 12px 40px;}
     .panel{padding:18px 14px 14px;}
   }
   @media print{
-    .controls, .tabs, .pharm-panel, .sync-box{display:none;}
+    .controls, .tabs, .pharm-panel, .sync-box, .rail{display:none;}
     header.top{background:none; padding:0 0 10px;}
     header.top h1{color:#000;} header.top p{color:#444;}
     body{background:#fff;}
@@ -213,11 +239,10 @@ document.getElementById("syncLabel").textContent="갱신 "+(d.getMonth()+1)+"/"+
 </script>
 
 <div class="wrap">
+<div class="layout">
+<main class="main">
 
-  <div class="panel">
-    <h2>🗓 클레임 현황</h2>
-    <div id="yesterdayClaims" class="claim-loading">클레임 이력 확인 중…</div>
-  </div>
+  <div class="kpi3" id="summary"></div>
 
   <div class="panel pharm-panel">
     <h2>💊 약국명으로 배송형태 검색</h2>
@@ -280,6 +305,16 @@ document.getElementById("syncLabel").textContent="갱신 "+(d.getMonth()+1)+"/"+
   </div>
 
   <footer>거점 도매 배송 엑셀 원본 데이터를 기반으로 생성된 대시보드입니다.</footer>
+</main>
+
+<aside class="rail" id="rail">
+  <div id="majorAlert" class="major-alert" hidden></div>
+  <h2 class="rail-title">🗓 클레임 현황</h2>
+  <div id="yesterdayClaims" class="claim-loading">클레임 이력 확인 중…</div>
+  <h2 class="rail-title">📊 거점별 미처리</h2>
+  <div id="depotBars" class="claim-loading">집계 중…</div>
+</aside>
+</div>
 </div>
 
 <script>
@@ -2171,9 +2206,13 @@ function claimItemHtml(cl, showPharm){
   </div>`;
 }
 
-function renderClaimBox(box, p){
+function claimsOf(p){
   const key = normPharmName(p.n);
-  const claims = (CLAIMS_DATA || []).filter(cl => cl.key === key && sameRegion(p.a, cl.addr));
+  return (CLAIMS_DATA || []).filter(cl => cl.key === key && sameRegion(p.a, cl.addr));
+}
+
+function renderClaimBox(box, p){
+  const claims = claimsOf(p);
   if(claims.length === 0){
     box.innerHTML = `<div class="claim-empty">클레임 이력 없음</div>`;
     return;
@@ -2188,6 +2227,37 @@ function formatSheetDate(d){
 function parseSheetDate(s){
   const m = String(s||"").match(/(\d+)\s*\.\s*(\d+)\s*\.\s*(\d+)/);
   return m ? new Date(Number(m[1]), Number(m[2])-1, Number(m[3])) : null;
+}
+
+// 오른쪽 패널의 거점별 미처리 막대 + 중대클레임 알림 (처리 필요/어제 처리완료 목록과 같은 데이터 사용)
+function renderRailExtras(pending, doneYesterday){
+  const bars = document.getElementById("depotBars");
+  if(bars){
+    const cnt = {};
+    pending.forEach(cl => { const d = cl.depot || "미상"; cnt[d] = (cnt[d] || 0) + 1; });
+    const rows = Object.entries(cnt).sort((a,b) => b[1] - a[1]);
+    bars.className = "";
+    bars.innerHTML = rows.length
+      ? rows.map(([d,n]) => `<div class="depot-bar"><span class="nm">${escHtml(d)}</span><span class="ct">${n}건</span><span class="tr"><i style="width:${Math.round(n / rows[0][1] * 100)}%"></i></span></div>`).join("")
+      : `<div class="claim-empty">처리 필요한 클레임이 없습니다 ✅</div>`;
+  }
+  const alertEl = document.getElementById("majorAlert");
+  if(alertEl){
+    const majors = [...pending, ...doneYesterday].filter(cl => detectMajorClaim(cl));
+    alertEl.hidden = majors.length === 0;
+    alertEl.textContent = majors.length ? `🚨 중대클레임 ${majors.length}건 — 아래 목록에서 확인하세요` : "";
+  }
+}
+
+function renderSummary(){
+  const el = document.getElementById("summary");
+  if(!el) return;
+  const cards = [
+    [PHARMACIES.length.toLocaleString(), "전국 약국"],
+    [PHARMACIES.filter(p => p.sz).length.toLocaleString(), "특수지역 약국"],
+    [Object.keys(DEPOT_COLOR_HUES).length, "협력도매 거점"],
+  ];
+  el.innerHTML = cards.map(([n,l]) => `<div class="stat"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join("");
 }
 
 async function renderYesterdayClaims(){
@@ -2210,6 +2280,7 @@ async function renderYesterdayClaims(){
     // 처리완료 건은 어제 접수분만 참고용으로 보여줌
     const doneYesterday = claims.filter(cl => cl.date === yStr && /완료/.test(cl.status))
       .sort((a,b) => (b.time||"").localeCompare(a.time||""));
+    renderRailExtras(pending, doneYesterday);
 
     if(pending.length === 0 && doneYesterday.length === 0){
       el.innerHTML = `<div class="claim-empty">처리 필요한 클레임이 없고, 어제(${yStr}) 접수된 건도 없습니다</div>`;
@@ -2222,6 +2293,8 @@ async function renderYesterdayClaims(){
       + section(`✅ 어제(${yStr}) 처리완료`, "done", doneYesterday);
   }catch(e){
     el.innerHTML = `<div class="claim-empty">클레임 데이터를 불러오지 못했습니다</div>`;
+    const bars = document.getElementById("depotBars");
+    if(bars) bars.textContent = "불러오지 못했습니다";
   }
 }
 
@@ -2354,7 +2427,7 @@ function renderPharmSearch(){
     const zoneBadge = p.sz ? `<span class="zone-badge" title="${zoneTitle}">⚠ 특수지역</span>` : "";
     const zoneReason = p.sz ? `<div class="zone-reason">${zoneReasonText}</div>` : "";
     return `<div class="pharm-card">
-      <div class="pharm-name">${p.n}${zoneBadge}<button class="claim-link" data-idx="${i}">클레임 이력</button></div>
+      <div class="pharm-name">${p.n}${zoneBadge}<button class="claim-link" data-idx="${i}" hidden>클레임 이력</button></div>
       <div class="pharm-addr">${zipTag}${p.a}${addrNote}</div>
       ${zoneReason}
       <div class="pharm-companies">${companyBlocks}</div>
@@ -2363,6 +2436,16 @@ function renderPharmSearch(){
   }).join("");
 
   PHARM_LAST_SHOWN = shown;
+
+  // 클레임 이력이 있는 약국에만 버튼을 보여준다 (데이터가 도착한 뒤에 표시)
+  loadClaims().then(()=>{
+    if(PHARM_LAST_SHOWN !== shown) return;
+    shown.forEach((p,i)=>{
+      if(!claimsOf(p).length) return;
+      const b = pharmResultsEl.querySelector(`.claim-link[data-idx="${i}"]`);
+      if(b) b.hidden = false;
+    });
+  }).catch(()=>{});
 }
 
 pharmResultsEl.addEventListener("click", (e)=>{
@@ -2387,6 +2470,7 @@ pharmResultsEl.addEventListener("click", (e)=>{
 pharmInput.addEventListener("input", renderPharmSearch);
 renderPharmSearch();
 renderYesterdayClaims();
+renderSummary();
 
 setupCompany();
 </script>
