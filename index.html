@@ -219,6 +219,9 @@
   .rate-track i.hi{background:var(--red);}
   .rate-track s{position:absolute; top:-3px; bottom:-3px; width:0; border-left:2px dashed var(--gold); text-decoration:none;}
   .hm-row .base{border:1px dashed var(--gold); background:color-mix(in srgb, var(--gold) 18%, transparent);}
+  .rate-total .nm{font-weight:800;}
+  .rate-track i.tot{background:var(--purple);}
+  .hm-row.total .lbl{font-weight:800;}
   .rate-track u{position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--text); opacity:.55; text-decoration:none;}
   .rate-scroll{overflow-x:auto;}
   .hm{min-width:380px; font-size:10.5px;}
@@ -279,7 +282,7 @@ document.getElementById("syncLabel").textContent="갱신 "+(d.getMonth()+1)+"/"+
     <h2>📈 거점별 클레임률 <span class="rate-note" id="rateNote"></span></h2>
     <div class="rate-grid">
       <div class="rate-col"><div class="rate-sub">누적 (3월~, 블럭형 시행 후)</div><div id="rateBars" class="claim-loading">집계 중…</div></div>
-      <div class="rate-col"><div class="rate-sub">월별 클레임률 (%)</div><div class="rate-scroll"><div id="rateHeat" class="claim-loading">집계 중…</div></div></div>
+      <div class="rate-col"><div class="rate-sub" id="rateSubHeat">월별 클레임률 (%)</div><div class="rate-scroll"><div id="rateHeat" class="claim-loading">집계 중…</div></div></div>
     </div>
     <div class="rate-foot" id="rateFoot"></div>
   </div>
@@ -2351,22 +2354,34 @@ async function renderRate(){
     const avg = pct(total.v, total.o);
     const base = Object.values(BASE25).reduce((a, x) => ({o: a.o + x.o, v: a.v + x.v}), {o: 0, v: 0});
     const baseAvg = pct(base.v, base.o);
+    const totalRow = {d: "전체 평균", o: total.o, v: total.v, rate: avg, base: baseAvg, isTotal: true};
     const maxRate = Math.max(...depots.map(x => x.rate), ...depots.map(x => x.base || 0), avg) || 1;
     const mNum = m => Number(m.slice(5));
     const partial = lastDate && months.length && lastDate.slice(0, 7) === months[months.length - 1] && Number(lastDate.slice(8)) < new Date(Number(lastDate.slice(0, 4)), Number(lastDate.slice(5, 7)), 0).getDate();
     const arrow = (cur, prev) => cur < prev ? "▼" : cur > prev ? "▲" : "–";
 
     document.getElementById("rateNote").textContent = `25년 평균 ${baseAvg.toFixed(2)}% → 3월~ ${avg.toFixed(2)}% (${arrow(avg, baseAvg)}${Math.abs(avg - baseAvg).toFixed(2)}%p) · ${total.v.toLocaleString()}건 / ${total.o.toLocaleString()}건`;
-    barsEl.className = "";
-    barsEl.innerHTML = depots.map(x => `<div class="rate-row">
-      <div class="rate-top"><span class="nm"><i style="background:${depotColor(x.d).fg}"></i>${escHtml(x.d)}</span><span class="val"><b>${x.rate.toFixed(2)}%</b><small>${x.v.toLocaleString()}건 / ${x.o.toLocaleString()}건</small></span></div>
-      <div class="rate-track"><i class="${x.rate > avg ? "hi" : ""}" style="width:${(x.rate / maxRate * 100).toFixed(1)}%"></i><u style="left:${(avg / maxRate * 100).toFixed(1)}%" title="3월~ 전체 평균 ${avg.toFixed(2)}%"></u>${x.base !== null ? `<s style="left:${(x.base / maxRate * 100).toFixed(1)}%" title="25년 평균 ${x.base.toFixed(2)}%"></s>` : ""}</div>
-    </div>`).join("");
+    const sub = document.getElementById("rateSubHeat");
+    if(sub) sub.textContent = partial ? `월별 클레임률 (%) · ${Number(lastDate.slice(5, 7))}/${Number(lastDate.slice(8))}까지 집계` : "월별 클레임률 (%)";
 
+    const barRow = x => `<div class="rate-row${x.isTotal ? " rate-total" : ""}">
+      <div class="rate-top"><span class="nm">${x.isTotal ? "" : `<i style="background:${depotColor(x.d).fg}"></i>`}${escHtml(x.d)}</span><span class="val"><b>${x.rate.toFixed(2)}%</b><small>${x.v.toLocaleString()}건 / ${x.o.toLocaleString()}건</small></span></div>
+      <div class="rate-track"><i class="${x.isTotal ? "tot" : (x.rate > avg ? "hi" : "")}" style="width:${(x.rate / maxRate * 100).toFixed(1)}%"></i>${x.isTotal ? "" : `<u style="left:${(avg / maxRate * 100).toFixed(1)}%" title="3월~ 전체 평균 ${avg.toFixed(2)}%"></u>`}${x.base !== null ? `<s style="left:${(x.base / maxRate * 100).toFixed(1)}%" title="25년 평균 ${x.base.toFixed(2)}%"></s>` : ""}</div>
+    </div>`;
+    barsEl.className = "";
+    barsEl.innerHTML = [totalRow, ...depots].map(barRow).join("");
+
+    const monthTotals = months.map(m => depots.reduce((a, x) => { const c = data[x.d][m]; return c ? {o: a.o + c.o, v: a.v + c.v} : a; }, {o: 0, v: 0}));
     const cellRates = x => months.map(m => data[x.d][m] ? pct(data[x.d][m].v, data[x.d][m].o) : null);
-    const monthlyMax = Math.max(...depots.flatMap(x => [...cellRates(x), x.base || 0]).filter(v => v !== null)) || 1;
+    const totalRates = monthTotals.map(t => t.o ? pct(t.v, t.o) : null);
+    const monthlyMax = Math.max(...depots.flatMap(x => [...cellRates(x), x.base || 0]).filter(v => v !== null), ...totalRates.filter(v => v !== null)) || 1;
     const heat = r => `background:color-mix(in srgb, var(--red) ${Math.round(r / monthlyMax * 60)}%, transparent)`;
-    const head = `<div class="hm-row hm-head"><div class="lbl">거점</div><div>25평균</div>${months.map((m, i) => `<div>${mNum(m)}월${partial && i === months.length - 1 ? "*" : ""}</div>`).join("")}<div>추세</div></div>`;
+    const spark = rates => {
+      const pts = rates.map((r, i) => r === null ? null : `${(i / Math.max(months.length - 1, 1) * 52 + 1).toFixed(1)},${(15 - r / monthlyMax * 13).toFixed(1)}`).filter(Boolean).join(" ");
+      return `<div class="spark"><svg width="46" height="16" viewBox="0 0 54 16"><polyline fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" points="${pts}"/></svg></div>`;
+    };
+    const head = `<div class="hm-row hm-head"><div class="lbl">거점</div><div>25평균</div>${months.map(m => `<div>${mNum(m)}월</div>`).join("")}<div>추세</div></div>`;
+    const totalLine = `<div class="hm-row total"><div class="lbl">전체</div><div class="base" title="전체 25년 평균: 클레임 ${base.v.toLocaleString()}건 / 주문 ${base.o.toLocaleString()}건 (25년 DB 배송 관련 6개 유형 기준 추정)">${baseAvg.toFixed(2)}</div>${monthTotals.map((t, i) => t.o ? `<div title="전체 ${mNum(months[i])}월: 클레임 ${t.v.toLocaleString()}건 / 주문 ${t.o.toLocaleString()}건" style="${heat(totalRates[i])}">${totalRates[i].toFixed(2)}</div>` : `<div class="empty">–</div>`).join("")}${spark(totalRates)}</div>`;
     const body = depots.map(x => {
       const rates = cellRates(x);
       const b = BASE25[x.d];
@@ -2376,18 +2391,14 @@ async function renderRate(){
         if(!c) return `<div class="empty">–</div>`;
         return `<div title="${escHtml(x.d)} ${mNum(m)}월: 클레임 ${c.v.toLocaleString()}건 / 주문 ${c.o.toLocaleString()}건" style="${heat(rates[i])}">${rates[i].toFixed(2)}</div>`;
       }).join("");
-      const pts = rates.map((r, i) => r === null ? null : `${(i / Math.max(months.length - 1, 1) * 52 + 1).toFixed(1)},${(15 - r / monthlyMax * 13).toFixed(1)}`).filter(Boolean).join(" ");
-      return `<div class="hm-row"><div class="lbl" title="${escHtml(x.d)}">${RATE_SHORT[x.d] || escHtml(x.d)}</div>${baseCell}${cells}<div class="spark"><svg width="46" height="16" viewBox="0 0 54 16"><polyline fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" points="${pts}"/></svg></div></div>`;
+      return `<div class="hm-row"><div class="lbl" title="${escHtml(x.d)}">${RATE_SHORT[x.d] || escHtml(x.d)}</div>${baseCell}${cells}${spark(rates)}</div>`;
     }).join("");
     heatEl.className = "hm";
-    heatEl.innerHTML = head + body;
+    heatEl.innerHTML = head + totalLine + body;
 
     document.getElementById("rateFoot").textContent =
-      `블럭형 거점도매 시행(3월) 이후만 월별·누적으로 집계했고, 25평균은 2025년 연평균입니다. 분모 = 주문건수(대웅제약+대웅바이오+한올바이오). ` +
-      `분자 = 3월~은 CS팀 집계 클레임성 VOC 건수, 25평균은 25년 DB의 배송 관련 6개 유형(배송지연·오배송·오출고·배송서비스·불량 및 파손·미배송)을 센 추정치라 같은 방식으로 2026년을 세면 약 10% 높게 나오므로 25년 값이 다소 크게 잡혀 있을 수 있어요. ` +
-      `막대의 실선은 3월~ 전체 평균, 금색 점선은 그 거점의 25년 평균, 빨강은 평균 이상입니다.` +
-      (partial ? ` * ${Number(lastDate.slice(5, 7))}월은 ${Number(lastDate.slice(5, 7))}/${Number(lastDate.slice(8))}까지 집계된 값입니다.` : "") +
-      ` 건수가 적은 거점은 비율이 크게 흔들릴 수 있어요.`;
+      `분모 = 주문건수(대웅제약+대웅바이오+한올바이오). 분자 = 3월~은 CS팀 집계 클레임성 VOC 건수, 25평균은 25년 DB의 배송 관련 6개 유형(배송지연·오배송·오출고·배송서비스·불량 및 파손·미배송)을 센 추정치라 같은 방식으로 2026년을 세면 약 10% 높게 나오므로 25년 값이 다소 크게 잡혀 있을 수 있어요. ` +
+      `막대의 실선은 3월~ 전체 평균, 금색 점선은 그 거점의 25년 평균, 빨강은 평균 이상입니다.`;
   }catch(e){
     barsEl.textContent = "클레임률 데이터를 불러오지 못했습니다";
     heatEl.textContent = "";
