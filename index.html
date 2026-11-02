@@ -2384,7 +2384,7 @@ async function renderRate(){
       return `<div class="spark"><svg width="46" height="16" viewBox="0 0 54 16"><polyline fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" points="${pts}"/></svg></div>`;
     };
     const head = `<div class="hm-row hm-head"><div class="lbl">거점</div><div>25평균</div>${months.map((m, i) => `<div>${mNum(m)}월${partial && i === months.length - 1 ? "*" : ""}</div>`).join("")}<div>추세</div></div>`;
-    const totalLine = `<div class="hm-row total"><div class="lbl">전체</div><div class="base" title="전체 25년 평균: 클레임 ${base.v.toLocaleString()}건 / 주문 ${base.o.toLocaleString()}건 (25년 DB 배송 관련 6개 유형 기준 추정)">${baseAvg.toFixed(2)}</div>${monthTotals.map((t, i) => t.o ? `<div title="전체 ${mNum(months[i])}월: 클레임 ${t.v.toLocaleString()}건 / 주문 ${t.o.toLocaleString()}건" style="${heat(totalRates[i])}">${totalRates[i].toFixed(2)}</div>` : `<div class="empty">–</div>`).join("")}${spark(totalRates)}</div>`;
+    const totalLine = `<div class="hm-row total"><div class="lbl">전체</div><div class="base" title="전체 25년 평균(현 거점 11곳 기준, 그 외 도매·공장 출고 제외): 클레임 ${base.v.toLocaleString()}건 / 주문 ${base.o.toLocaleString()}건 (25년 DB 배송 관련 6개 유형 기준 추정)">${baseAvg.toFixed(2)}</div>${monthTotals.map((t, i) => t.o ? `<div title="전체 ${mNum(months[i])}월: 클레임 ${t.v.toLocaleString()}건 / 주문 ${t.o.toLocaleString()}건" style="${heat(totalRates[i])}">${totalRates[i].toFixed(2)}</div>` : `<div class="empty">–</div>`).join("")}${spark(totalRates)}</div>`;
     const body = depots.map(x => {
       const rates = cellRates(x);
       const b = BASE25[x.d];
@@ -2400,7 +2400,7 @@ async function renderRate(){
     heatEl.innerHTML = head + totalLine + body;
 
     document.getElementById("rateFoot").textContent =
-      `분모 = 주문건수(대웅제약+대웅바이오+한올바이오). 분자 = 3월~은 CS팀 집계 클레임성 VOC 건수, 25평균은 25년 DB의 배송 관련 6개 유형(배송지연·오배송·오출고·배송서비스·불량 및 파손·미배송)을 센 추정치라 같은 방식으로 2026년을 세면 약 10% 높게 나오므로 25년 값이 다소 크게 잡혀 있을 수 있어요. ` +
+      `25평균은 2025년 현 거점 11곳만의 수치이며, 그 외 도매(대전지오영 등)와 공장 직출고는 제외했습니다. 분모 = 주문건수(대웅제약+대웅바이오+한올바이오). 분자 = 3월~은 CS팀 집계 클레임성 VOC 건수, 25평균은 25년 DB의 배송 관련 6개 유형(배송지연·오배송·오출고·배송서비스·불량 및 파손·미배송)을 센 추정치라 같은 방식으로 2026년을 세면 약 10% 높게 나오므로 25년 값이 다소 크게 잡혀 있을 수 있어요. ` +
       `막대의 실선은 3월~ 전체 평균, 금색 점선은 그 거점의 25년 평균, 빨강은 평균 이상입니다.`;
   }catch(e){
     barsEl.textContent = "클레임률 데이터를 불러오지 못했습니다";
