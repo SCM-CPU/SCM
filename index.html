@@ -2359,8 +2359,11 @@ async function renderRate(){
     const mNum = m => Number(m.slice(5));
     const partial = lastDate && months.length && lastDate.slice(0, 7) === months[months.length - 1] && Number(lastDate.slice(8)) < new Date(Number(lastDate.slice(0, 4)), Number(lastDate.slice(5, 7)), 0).getDate();
     const arrow = (cur, prev) => cur < prev ? "▼" : cur > prev ? "▲" : "–";
+    const last3 = (partial ? months.slice(0, -1) : months).slice(-3); // 마감된 최근 3개월 (월중인 달 제외)
+    const l3 = last3.reduce((a, m) => depots.reduce((b, x) => { const c = data[x.d][m]; return c ? {o: b.o + c.o, v: b.v + c.v} : b; }, a), {o: 0, v: 0});
+    const l3Text = last3.length === 3 && l3.o ? ` · 최근 3개월(${mNum(last3[0])}~${mNum(last3[2])}월) ${pct(l3.v, l3.o).toFixed(2)}% (25년 대비 ${arrow(pct(l3.v, l3.o), baseAvg)}${Math.round(Math.abs(1 - pct(l3.v, l3.o) / baseAvg) * 100)}%)` : "";
 
-    document.getElementById("rateNote").textContent = `25년 평균 ${baseAvg.toFixed(2)}% → 3월~ ${avg.toFixed(2)}% (${arrow(avg, baseAvg)}${Math.abs(avg - baseAvg).toFixed(2)}%p) · ${total.v.toLocaleString()}건 / ${total.o.toLocaleString()}건`;
+    document.getElementById("rateNote").textContent = `25년 평균 ${baseAvg.toFixed(2)}% → 3월~ ${avg.toFixed(2)}% (${arrow(avg, baseAvg)}${Math.abs(avg - baseAvg).toFixed(2)}%p) · ${total.v.toLocaleString()}건 / ${total.o.toLocaleString()}건${l3Text}`;
     const sub = document.getElementById("rateSubHeat");
     if(sub) sub.textContent = partial ? `월별 클레임률 (%) · ${Number(lastDate.slice(5, 7))}/${Number(lastDate.slice(8))}까지 집계` : "월별 클레임률 (%)";
 
@@ -2380,7 +2383,7 @@ async function renderRate(){
       const pts = rates.map((r, i) => r === null ? null : `${(i / Math.max(months.length - 1, 1) * 52 + 1).toFixed(1)},${(15 - r / monthlyMax * 13).toFixed(1)}`).filter(Boolean).join(" ");
       return `<div class="spark"><svg width="46" height="16" viewBox="0 0 54 16"><polyline fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" points="${pts}"/></svg></div>`;
     };
-    const head = `<div class="hm-row hm-head"><div class="lbl">거점</div><div>25평균</div>${months.map(m => `<div>${mNum(m)}월</div>`).join("")}<div>추세</div></div>`;
+    const head = `<div class="hm-row hm-head"><div class="lbl">거점</div><div>25평균</div>${months.map((m, i) => `<div>${mNum(m)}월${partial && i === months.length - 1 ? "*" : ""}</div>`).join("")}<div>추세</div></div>`;
     const totalLine = `<div class="hm-row total"><div class="lbl">전체</div><div class="base" title="전체 25년 평균: 클레임 ${base.v.toLocaleString()}건 / 주문 ${base.o.toLocaleString()}건 (25년 DB 배송 관련 6개 유형 기준 추정)">${baseAvg.toFixed(2)}</div>${monthTotals.map((t, i) => t.o ? `<div title="전체 ${mNum(months[i])}월: 클레임 ${t.v.toLocaleString()}건 / 주문 ${t.o.toLocaleString()}건" style="${heat(totalRates[i])}">${totalRates[i].toFixed(2)}</div>` : `<div class="empty">–</div>`).join("")}${spark(totalRates)}</div>`;
     const body = depots.map(x => {
       const rates = cellRates(x);
